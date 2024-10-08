@@ -11,6 +11,7 @@ fastify.get("/", function (request, reply) {
 });
 
 // Run the server!
+// testing
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {
         fastify.log.error(err);

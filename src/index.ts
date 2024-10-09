@@ -48,8 +48,6 @@ fastify.post<{
 
     const { id, name, email, pic } = request.body;
 
-    console.log({ id, name, email, pic });
-
     await connection.execute(
         "INSERT INTO User (id, name, email, pic) VALUES (?, ?, ?, ?)",
         [id, name, email, pic]

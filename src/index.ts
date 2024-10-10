@@ -4,6 +4,7 @@ import Fastify, { FastifyReply, FastifyRequest } from "fastify";
 import getCloudSqlConnection from "./helpers/getCloudSqlConnection";
 import User from "./typeDefs/User";
 import { RowDataPacket } from "mysql2";
+import { StravaCreds } from "./typeDefs/StravaCreds";
 
 const fastify = Fastify({
     logger: true,
@@ -11,6 +12,22 @@ const fastify = Fastify({
 
 fastify.get("/", function (request, reply) {
     reply.send({ hello: "world" });
+});
+
+fastify.post<{
+    Body: StravaCreds;
+}>("/strava-creds", async (request, reply) => {
+    const connection = await getCloudSqlConnection();
+
+    const { providerAccountId, access_token, refresh_token, expires_at } =
+        request.body;
+
+    await connection.execute(
+        "INSERT INTO StravaToken (userId, accessToken, refreshToken, accessTokenExpiresAt) VALUES (?, ?, ?, ?)",
+        [providerAccountId, access_token, refresh_token, expires_at]
+    );
+
+    reply.code(200).send({ message: "Strava creds saved" });
 });
 
 fastify.post<{

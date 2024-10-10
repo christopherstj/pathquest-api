@@ -23,8 +23,16 @@ fastify.post<{
         request.body;
 
     await connection.execute(
-        "INSERT INTO StravaToken (userId, accessToken, refreshToken, accessTokenExpiresAt) VALUES (?, ?, ?, ?)",
-        [providerAccountId, access_token, refresh_token, expires_at]
+        "INSERT INTO StravaToken (userId, accessToken, refreshToken, accessTokenExpiresAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE accessToken = ?, refreshToken = ?, accessTokenExpiresAt = ?",
+        [
+            providerAccountId,
+            access_token,
+            refresh_token,
+            expires_at,
+            access_token,
+            refresh_token,
+            expires_at,
+        ]
     );
 
     reply.code(200).send({ message: "Strava creds saved" });

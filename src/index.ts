@@ -5,6 +5,7 @@ import getCloudSqlConnection from "./helpers/getCloudSqlConnection";
 import User from "./typeDefs/User";
 import { RowDataPacket } from "mysql2";
 import { StravaCreds } from "./typeDefs/StravaCreds";
+import getUserHistoricalData from "./helpers/historical-data/getUserHistoricalData";
 
 const fastify = Fastify({
     logger: true,
@@ -12,6 +13,20 @@ const fastify = Fastify({
 
 fastify.get("/", function (request, reply) {
     reply.send({ hello: "world" });
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+    };
+}>("/historical-data", async (request, reply) => {
+    const { userId } = request.body;
+
+    console.log("Processing historical data for", userId);
+
+    getUserHistoricalData(userId);
+
+    reply.code(200).send({ message: "Processing historical data" });
 });
 
 fastify.post<{

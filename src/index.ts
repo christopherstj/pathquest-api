@@ -9,6 +9,7 @@ import getUserHistoricalData from "./helpers/historical-data/getUserHistoricalDa
 import updateStravaCreds from "./helpers/strava-creds/updateStravaCreds";
 import getUser from "./helpers/user/getUser";
 import getPeaks from "./helpers/peaks/getPeaks";
+import getChallenges from "./helpers/challenges/getChallenges";
 
 const fastify = Fastify({
     logger: true,
@@ -86,6 +87,21 @@ fastify.get<{
 
     const peaks = await getPeaks(page, perPage, search);
     reply.code(200).send(peaks);
+});
+
+fastify.get<{
+    Querystring: {
+        page?: string;
+        perPage?: string;
+        search?: string;
+    };
+}>("/challenges", async function (request, reply) {
+    const page = parseInt(request.query.page ?? "1");
+    const perPage = parseInt(request.query.perPage ?? "25");
+    const search = request.query.search;
+
+    const challenges = await getChallenges(page, perPage, search);
+    reply.code(200).send(challenges);
 });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {

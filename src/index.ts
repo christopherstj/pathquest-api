@@ -6,6 +6,9 @@ import User from "./typeDefs/User";
 import { RowDataPacket } from "mysql2";
 import { StravaCreds } from "./typeDefs/StravaCreds";
 import getUserHistoricalData from "./helpers/historical-data/getUserHistoricalData";
+import updateStravaCreds from "./helpers/strava-creds/updateStravaCreds";
+import getUser from "./helpers/user/getUser";
+import getPeaks from "./helpers/peaks/getPeaks";
 
 const fastify = Fastify({
     logger: true,
@@ -32,24 +35,7 @@ fastify.post<{
 fastify.post<{
     Body: StravaCreds;
 }>("/strava-creds", async (request, reply) => {
-    const connection = await getCloudSqlConnection();
-
-    const { providerAccountId, access_token, refresh_token, expires_at } =
-        request.body;
-
-    await connection.execute(
-        "INSERT INTO StravaToken (userId, accessToken, refreshToken, accessTokenExpiresAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE accessToken = ?, refreshToken = ?, accessTokenExpiresAt = ?",
-        [
-            providerAccountId,
-            access_token,
-            refresh_token,
-            expires_at,
-            access_token,
-            refresh_token,
-            expires_at,
-        ]
-    );
-
+    await updateStravaCreds(request.body);
     reply.code(200).send({ message: "Strava creds saved" });
 });
 
@@ -58,16 +44,7 @@ fastify.post<{
         id: string;
     };
 }>("/user", async (request, reply) => {
-    const connection = await getCloudSqlConnection();
-
-    const { id } = request.body;
-
-    const [rows] = await connection.query<(User & RowDataPacket)[]>(
-        "SELECT * FROM User WHERE id = ? LIMIT 1",
-        [id]
-    );
-
-    const user = rows[0];
+    const user = await getUser(request.body.id);
 
     if (!user) {
         reply.code(200).send({ userFound: false });
@@ -96,12 +73,19 @@ fastify.post<{
     return { id, name, email, pic };
 });
 
-fastify.get("/peaks", async function (request, reply) {
-    const connection = await getCloudSqlConnection();
+fastify.get<{
+    Querystring: {
+        page?: string;
+        perPage?: string;
+        search?: string;
+    };
+}>("/peaks", async function (request, reply) {
+    const page = parseInt(request.query.page ?? "1");
+    const perPage = parseInt(request.query.perPage ?? "25");
+    const search = request.query.search;
 
-    const [rows] = await connection.execute("SELECT * FROM Peak");
-
-    return rows;
+    const peaks = await getPeaks(page, perPage, search);
+    reply.code(200).send(peaks);
 });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {

@@ -31,6 +31,8 @@ const getCloudSqlConnection = async () => {
             user: "local-user",
             password: process.env.MYSQL_PASSWORD,
             database: "dev-db",
+            connectTimeout: 20000,
+            idleTimeout: 600000,
             ...clientOpts,
         });
 

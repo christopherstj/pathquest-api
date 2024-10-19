@@ -10,6 +10,13 @@ import updateStravaCreds from "./helpers/strava-creds/updateStravaCreds";
 import getUser from "./helpers/user/getUser";
 import getPeaks from "./helpers/peaks/getPeaks";
 import getChallenges from "./helpers/challenges/getChallenges";
+import getPeakSummits from "./helpers/peaks/getPeakSummits";
+import createUser from "./helpers/user/createUser";
+import getNearestUnclimbedPeaks from "./helpers/peaks/getNearestUnclimbedPeaks";
+import addFavoritePeak from "./helpers/peaks/addFavoritePeak";
+import removeFavoritePeak from "./helpers/peaks/removeFavoritePeak";
+import getFavoritePeaks from "./helpers/peaks/getFavoritePeaks";
+import getUncompletedChallenges from "./helpers/challenges/getUncompletedChallenges";
 
 const fastify = Fastify({
     logger: true,
@@ -62,14 +69,9 @@ fastify.post<{
         pic: string | null;
     };
 }>("/signup", async (request, reply) => {
-    const connection = await getCloudSqlConnection();
-
     const { id, name, email, pic } = request.body;
 
-    await connection.execute(
-        "INSERT INTO User (id, name, email, pic) VALUES (?, ?, ?, ?)",
-        [id, name, email, pic]
-    );
+    await createUser({ id, name, email });
 
     return { id, name, email, pic };
 });
@@ -87,6 +89,70 @@ fastify.get<{
 
     const peaks = await getPeaks(page, perPage, search);
     reply.code(200).send(peaks);
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+    };
+}>("/peaks/summits", async function (request, reply) {
+    const userId = request.body.userId;
+    const peaks = await getPeakSummits(userId);
+    reply.code(200).send(peaks);
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+    };
+}>("/peaks/summits/unclimbed", async function (request, reply) {
+    const userId = request.body.userId;
+    const peaks = await getNearestUnclimbedPeaks(userId);
+    reply.code(200).send(peaks);
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+    };
+}>("/peaks/summits/favorite", async function (request, reply) {
+    const userId = request.body.userId;
+    const peaks = await getFavoritePeaks(userId);
+    reply.code(200).send(peaks);
+});
+
+fastify.put<{
+    Body: {
+        newValue: boolean;
+        userId: string;
+        peakId: string;
+    };
+}>("/peaks/favorite", async function (request, reply) {
+    const newValue = request.body.newValue;
+    const userId = request.body.userId;
+    const peakId = request.body.peakId;
+
+    if (newValue === true) {
+        await addFavoritePeak(peakId, userId);
+    } else {
+        await removeFavoritePeak(userId, peakId);
+    }
+
+    reply.code(200).send({ message: "Peak favorite added" });
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+    };
+}>("/challenges/incomplete", async function (request, reply) {
+    const userId = request.body.userId;
+
+    const challenges = await getUncompletedChallenges(userId);
+
+    console.log(challenges);
+
+    reply.code(200).send(challenges);
 });
 
 fastify.get<{

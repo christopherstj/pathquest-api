@@ -27,6 +27,7 @@
     "dependencies": {
         "@fastify/jwt": "^9.0.1",
         "@google-cloud/cloud-sql-connector": "^1.4.0",
+        "@googlemaps/google-maps-services-js": "^3.4.0",
         "@types/node": "^22.7.5",
         "dayjs": "^1.11.13",
         "dotenv": "^16.4.5",

@@ -21,7 +21,6 @@ const getFavoritePeaks = async (userId: string) => {
             WHERE ap2.id IS NULL
             AND upf.userId IS NOT NULL 
             ORDER BY p.Altitude DESC
-            LIMIT 10;
         `,
         [userId]
     );

@@ -17,6 +17,7 @@ import addFavoritePeak from "./helpers/peaks/addFavoritePeak";
 import removeFavoritePeak from "./helpers/peaks/removeFavoritePeak";
 import getFavoritePeaks from "./helpers/peaks/getFavoritePeaks";
 import getUncompletedChallenges from "./helpers/challenges/getUncompletedChallenges";
+import getIsPeakFavorited from "./helpers/peaks/getIsPeakFavorited";
 
 const fastify = Fastify({
     logger: true,
@@ -139,6 +140,20 @@ fastify.put<{
     }
 
     reply.code(200).send({ message: "Peak favorite added" });
+});
+
+fastify.get<{
+    Querystring: {
+        userId: string;
+        peakId: string;
+    };
+}>("/peaks/favorite", async function (request, reply) {
+    const userId = request.query.userId;
+    const peakId = request.query.peakId;
+
+    const isFavorited = getIsPeakFavorited(userId, peakId);
+
+    reply.code(200).send({ isFavorited });
 });
 
 fastify.post<{

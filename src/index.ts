@@ -1,9 +1,6 @@
 import { config } from "dotenv";
 config();
-import Fastify, { FastifyReply, FastifyRequest } from "fastify";
-import getCloudSqlConnection from "./helpers/getCloudSqlConnection";
-import User from "./typeDefs/User";
-import { RowDataPacket } from "mysql2";
+import Fastify from "fastify";
 import { StravaCreds } from "./typeDefs/StravaCreds";
 import getUserHistoricalData from "./helpers/historical-data/getUserHistoricalData";
 import updateStravaCreds from "./helpers/strava-creds/updateStravaCreds";
@@ -18,6 +15,7 @@ import removeFavoritePeak from "./helpers/peaks/removeFavoritePeak";
 import getFavoritePeaks from "./helpers/peaks/getFavoritePeaks";
 import getUncompletedChallenges from "./helpers/challenges/getUncompletedChallenges";
 import getIsPeakFavorited from "./helpers/peaks/getIsPeakFavorited";
+import getActivityByPeak from "./helpers/activities/getActivitiesByPeak";
 
 const fastify = Fastify({
     logger: true,
@@ -151,7 +149,7 @@ fastify.get<{
     const userId = request.query.userId;
     const peakId = request.query.peakId;
 
-    const isFavorited = getIsPeakFavorited(userId, peakId);
+    const isFavorited = await getIsPeakFavorited(userId, peakId);
 
     reply.code(200).send({ isFavorited });
 });
@@ -183,6 +181,20 @@ fastify.get<{
 
     const challenges = await getChallenges(page, perPage, search);
     reply.code(200).send(challenges);
+});
+
+fastify.post<{
+    Body: {
+        userId: string;
+        peakId: string;
+    };
+}>("/activities/peak", async function (request, reply) {
+    const userId = request.body.userId;
+    const peakId = request.body.peakId;
+
+    const activities = await getActivityByPeak(peakId, userId);
+
+    reply.code(200).send(activities);
 });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {

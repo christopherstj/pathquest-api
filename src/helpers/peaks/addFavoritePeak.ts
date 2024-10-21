@@ -8,6 +8,8 @@ const addFavoritePeak = async (peakId: string, userId: string) => {
         [peakId, userId]
     );
 
+    await connection.release();
+
     return;
 };
 

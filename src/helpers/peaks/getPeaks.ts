@@ -13,12 +13,18 @@ const getPeaks = async (page: number, perPage: number, search?: string) => {
             `SELECT * FROM Peak WHERE LOWER(\`Name\`) LIKE CONCAT('%', ?, '%') ORDER BY Altitude DESC LIMIT ? OFFSET ?`,
             [search.toLocaleLowerCase(), perPage, skip]
         );
+
+        await connection.release();
+
         return rows;
     } else {
         const [rows] = await connection.query<(Peak & RowDataPacket)[]>(
             `SELECT * FROM Peak ORDER BY Altitude DESC LIMIT ? OFFSET ?`,
             [perPage, skip]
         );
+
+        await connection.release();
+
         return rows;
     }
 };

@@ -16,6 +16,7 @@ import getFavoritePeaks from "./helpers/peaks/getFavoritePeaks";
 import getUncompletedChallenges from "./helpers/challenges/getUncompletedChallenges";
 import getIsPeakFavorited from "./helpers/peaks/getIsPeakFavorited";
 import getActivityByPeak from "./helpers/activities/getActivitiesByPeak";
+import getUnclimbedPeaks from "./helpers/peaks/getUnclimbedPeaks";
 
 const fastify = Fastify({
     logger: true,
@@ -107,6 +108,27 @@ fastify.post<{
 }>("/peaks/summits/unclimbed", async function (request, reply) {
     const userId = request.body.userId;
     const peaks = await getNearestUnclimbedPeaks(userId);
+    reply.code(200).send(peaks);
+});
+
+fastify.get<{
+    Querystring: {
+        userId: string;
+        northWestLat: string;
+        northWestLng: string;
+        southEastLat: string;
+        southEastLng: string;
+    };
+}>("/peaks/summits/unclimbed", async function (request, reply) {
+    const { userId, northWestLat, northWestLng, southEastLat, southEastLng } =
+        request.query;
+    const peaks = await getUnclimbedPeaks(
+        [
+            [parseFloat(northWestLat), parseFloat(northWestLng)],
+            [parseFloat(southEastLat), parseFloat(southEastLng)],
+        ],
+        userId
+    );
     reply.code(200).send(peaks);
 });
 

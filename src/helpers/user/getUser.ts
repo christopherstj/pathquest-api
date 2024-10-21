@@ -12,6 +12,8 @@ const getUser = async (userId: string) => {
 
     const user = rows[0];
 
+    connection.release();
+
     return user;
 };
 

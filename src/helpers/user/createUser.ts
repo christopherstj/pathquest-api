@@ -71,6 +71,8 @@ const createUser = async ({
             lng ?? null,
         ]
     );
+
+    await connection.release();
 };
 
 export default createUser;

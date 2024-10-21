@@ -18,6 +18,8 @@ const saveStravaCreds = async (creds: StravaCredsDb) => {
             accessTokenExpiresAt,
         ]
     );
+
+    await connection.release();
 };
 
 export default saveStravaCreds;

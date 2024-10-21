@@ -35,6 +35,8 @@ const getUncompletedChallenges = async (
         [userId]
     );
 
+    await connection.release();
+
     return rows;
 };
 

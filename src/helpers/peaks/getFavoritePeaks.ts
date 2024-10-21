@@ -25,6 +25,8 @@ const getFavoritePeaks = async (userId: string) => {
         [userId]
     );
 
+    await connection.release();
+
     return rows;
 };
 

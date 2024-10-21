@@ -1,22 +1,18 @@
-import { RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
-import getUser from "../user/getUser";
+import { RowDataPacket } from "mysql2/promise";
 import Peak from "../../typeDefs/Peak";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
-const getNearestUnclimbedPeaks = async (userId: string) => {
+const getUnclimbedPeaks = async (
+    bounds: [[number, number], [number, number]],
+    userId: string
+) => {
     const connection = await getCloudSqlConnection();
-
-    const user = await getUser(userId);
-
-    if (!user) {
-        return [];
-    }
 
     const [rows] = await connection.query<
         (Peak & { distance: number; isFavorited: boolean } & RowDataPacket)[]
     >(
         `
-            SELECT p.*, SQRT(POW(? - ABS(p.Lat), 2) + POW(? - ABS(p.\`Long\`), 2)) distance, upf.userId IS NOT NULL isFavorited
+            SELECT p.*, upf.userId IS NOT NULL isFavorited
             FROM Peak p 
             LEFT JOIN (
                 SELECT ap.id, ap.peakId FROM ActivityPeak ap
@@ -26,9 +22,16 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
             LEFT JOIN UserPeakFavorite upf
             ON p.id = upf.peakId
             WHERE ap2.id IS NULL
-            ORDER BY distance ASC LIMIT 100;
+            AND p.Lat BETWEEN ? AND ?
+            AND p.\`Long\` BETWEEN ? AND ?
         `,
-        [Math.abs(user.lat ?? 0), Math.abs(user.long ?? 0), userId]
+        [
+            userId,
+            Math.min(bounds[0][0], bounds[1][0]),
+            Math.max(bounds[0][0], bounds[1][0]),
+            Math.min(bounds[0][1], bounds[1][1]),
+            Math.max(bounds[0][1], bounds[1][1]),
+        ]
     );
 
     await connection.release();
@@ -36,4 +39,4 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
     return rows;
 };
 
-export default getNearestUnclimbedPeaks;
+export default getUnclimbedPeaks;

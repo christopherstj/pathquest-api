@@ -19,6 +19,8 @@ const updateStravaCreds = async (stravaCreds: StravaCreds) => {
             expires_at,
         ]
     );
+
+    await connection.release();
 };
 
 export default updateStravaCreds;

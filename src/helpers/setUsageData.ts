@@ -18,6 +18,8 @@ const setUsageData = async (headers: Headers) => {
         `UPDATE StravaRateLimit SET shortTermLimit = ?, dailyLimit = ?, shortTermUsage = ?, dailyUsage = ?`,
         [shortTermLimit, dailyLimit, shortTermUsage, dailyUsage]
     );
+
+    await connection.release();
 };
 
 export default setUsageData;

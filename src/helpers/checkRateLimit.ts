@@ -23,6 +23,8 @@ const checkRateLimit = async () => {
         return false;
     }
 
+    await connection.release();
+
     return true;
 };
 

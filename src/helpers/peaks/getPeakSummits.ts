@@ -41,6 +41,8 @@ const getPeakSummits = async (userId: string) => {
 
     const peakSummits = await Promise.all(promises);
 
+    await connection.release();
+
     return peakSummits;
 };
 

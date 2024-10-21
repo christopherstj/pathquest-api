@@ -19,6 +19,9 @@ const getChallenges = async (
             ORDER BY \`name\` ASC LIMIT ? OFFSET ?`,
             [search.toLocaleLowerCase(), perPage, skip]
         );
+
+        await connection.release();
+
         return rows;
     } else {
         const [rows] = await connection.query<(Challenge & RowDataPacket)[]>(
@@ -27,6 +30,9 @@ const getChallenges = async (
             ORDER BY \`name\` ASC LIMIT ? OFFSET ?`,
             [perPage, skip]
         );
+
+        await connection.release();
+
         return rows;
     }
 };

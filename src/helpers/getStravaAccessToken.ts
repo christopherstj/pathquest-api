@@ -43,6 +43,8 @@ const getStravaAccessToken = async (userId: string) => {
 
     const { accessToken, refreshToken, accessTokenExpiresAt } = creds;
 
+    await connection.release();
+
     if (!refreshToken || refreshToken === "") {
         return null;
     } else if (!accessToken || accessToken === "") {

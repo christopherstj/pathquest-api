@@ -106,13 +106,9 @@ fastify.get<{
 
     const peak = await getPeakById(peakId, userId);
 
-    console.log(peak);
-
     if (peak?.isSummitted) {
         const activities = await getActivityByPeak(peakId, userId);
         const summits = await getSummitsByPeak(peakId, userId);
-        console.log(activities);
-        console.log(summits);
         reply.code(200).send({ peak, activities, summits });
     } else {
         reply.code(200).send({ peak, activities: [], summits: [] });

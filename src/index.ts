@@ -17,6 +17,8 @@ import getUncompletedChallenges from "./helpers/challenges/getUncompletedChallen
 import getIsPeakFavorited from "./helpers/peaks/getIsPeakFavorited";
 import getActivityByPeak from "./helpers/activities/getActivitiesByPeak";
 import getUnclimbedPeaks from "./helpers/peaks/getUnclimbedPeaks";
+import getPeakById from "./helpers/peaks/getPeakById";
+import getSummitsByPeak from "./helpers/peaks/getSummitsByPeak";
 
 const fastify = Fastify({
     logger: true,
@@ -91,6 +93,32 @@ fastify.get<{
     reply.code(200).send(peaks);
 });
 
+fastify.get<{
+    Params: {
+        id: string;
+    };
+    Querystring: {
+        userId: string;
+    };
+}>("/peaks/details/:id", async function (request, reply) {
+    const peakId = request.params.id;
+    const userId = request.query.userId;
+
+    const peak = await getPeakById(peakId, userId);
+
+    console.log(peak);
+
+    if (peak?.isSummitted) {
+        const activities = await getActivityByPeak(peakId, userId);
+        const summits = await getSummitsByPeak(peakId, userId);
+        console.log(activities);
+        console.log(summits);
+        reply.code(200).send({ peak, activities, summits });
+    } else {
+        reply.code(200).send({ peak, activities: [], summits: [] });
+    }
+});
+
 fastify.post<{
     Body: {
         userId: string;
@@ -138,8 +166,6 @@ fastify.get<{
                   [parseFloat(southEastLat), parseFloat(southEastLng)],
               ] as [[number, number], [number, number]])
             : undefined;
-
-    console.log(request.query);
 
     if (bounds || search) {
         const peaks = await getUnclimbedPeaks(

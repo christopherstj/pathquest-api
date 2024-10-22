@@ -27,10 +27,12 @@ const getPeakSummits = async (userId: string) => {
         >(
             `
             SELECT \`timestamp\`, activityId
-            FROM ActivityPeak
-            WHERE peakId = ?;
+            FROM ActivityPeak ap
+            LEFT JOIN Activity a ON ap.activityId = a.id
+            WHERE peakId = ?
+            AND a.userId = ?
         `,
-            [row.Id]
+            [row.Id, userId]
         );
 
         return {

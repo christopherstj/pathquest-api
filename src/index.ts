@@ -101,12 +101,12 @@ fastify.post<{
     reply.code(200).send(peaks);
 });
 
-fastify.post<{
-    Body: {
+fastify.get<{
+    Querystring: {
         userId: string;
     };
-}>("/peaks/summits/unclimbed", async function (request, reply) {
-    const userId = request.body.userId;
+}>("/peaks/summits/unclimbed/nearest", async function (request, reply) {
+    const userId = request.query.userId;
     const peaks = await getNearestUnclimbedPeaks(userId);
     reply.code(200).send(peaks);
 });
@@ -114,22 +114,44 @@ fastify.post<{
 fastify.get<{
     Querystring: {
         userId: string;
-        northWestLat: string;
-        northWestLng: string;
-        southEastLat: string;
-        southEastLng: string;
+        northWestLat?: string;
+        northWestLng?: string;
+        southEastLat?: string;
+        southEastLng?: string;
+        search?: string;
+        showSummittedPeaks?: string;
     };
 }>("/peaks/summits/unclimbed", async function (request, reply) {
-    const { userId, northWestLat, northWestLng, southEastLat, southEastLng } =
-        request.query;
-    const peaks = await getUnclimbedPeaks(
-        [
-            [parseFloat(northWestLat), parseFloat(northWestLng)],
-            [parseFloat(southEastLat), parseFloat(southEastLng)],
-        ],
-        userId
-    );
-    reply.code(200).send(peaks);
+    const {
+        userId,
+        northWestLat,
+        northWestLng,
+        southEastLat,
+        southEastLng,
+        search,
+    } = request.query;
+    const showSummittedPeaks = request.query.showSummittedPeaks === "true";
+    const bounds =
+        northWestLat && northWestLng && southEastLat && southEastLng
+            ? ([
+                  [parseFloat(northWestLat), parseFloat(northWestLng)],
+                  [parseFloat(southEastLat), parseFloat(southEastLng)],
+              ] as [[number, number], [number, number]])
+            : undefined;
+
+    console.log(request.query);
+
+    if (bounds || search) {
+        const peaks = await getUnclimbedPeaks(
+            userId,
+            bounds,
+            search,
+            showSummittedPeaks
+        );
+        reply.code(200).send(peaks);
+    } else {
+        reply.code(400).send({ message: "Bounds or search query required" });
+    }
 });
 
 fastify.post<{

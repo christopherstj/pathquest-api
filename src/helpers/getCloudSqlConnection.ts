@@ -12,6 +12,7 @@ const getCloudSqlConnection = async () => {
             password: process.env.MYSQL_PASSWORD,
             database: "dev-db",
             socketPath: "/cloudsql/" + process.env.INSTANCE_CONNECTION_NAME,
+            timezone: "+00:00",
         });
 
         console.log("Created pool");
@@ -33,6 +34,7 @@ const getCloudSqlConnection = async () => {
             database: "dev-db",
             connectTimeout: 20000,
             idleTimeout: 600000,
+            timezone: "+00:00",
             ...clientOpts,
         });
 

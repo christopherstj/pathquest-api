@@ -19,13 +19,32 @@ import getActivityByPeak from "./helpers/activities/getActivitiesByPeak";
 import getUnclimbedPeaks from "./helpers/peaks/getUnclimbedPeaks";
 import getPeakById from "./helpers/peaks/getPeakById";
 import getSummitsByPeak from "./helpers/peaks/getSummitsByPeak";
+import getStravaAccessToken from "./helpers/getStravaAccessToken";
 
 const fastify = Fastify({
     logger: true,
 });
 
-fastify.get("/", function (request, reply) {
-    reply.send({ hello: "world" });
+fastify.get<{
+    Querystring: {
+        userId: string;
+        activityId: string;
+    };
+}>("/", async function (request, reply) {
+    const { userId, activityId } = request.query;
+
+    const token = await getStravaAccessToken(userId);
+
+    const activity = await fetch(
+        `https://www.strava.com/api/v3/activities/${activityId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    reply.send(await activity.json());
 });
 
 fastify.post<{
@@ -108,6 +127,9 @@ fastify.get<{
 
     if (peak?.isSummitted) {
         const activities = await getActivityByPeak(peakId, userId);
+        activities.forEach((activity) => {
+            if (activity.id === "12242435637") console.log(activity.startTime);
+        });
         const summits = await getSummitsByPeak(peakId, userId);
         reply.code(200).send({ peak, activities, summits });
     } else {

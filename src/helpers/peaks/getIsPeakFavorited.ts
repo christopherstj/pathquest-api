@@ -9,7 +9,7 @@ const getIsPeakFavorited = async (userId: string, peakId: string) => {
         [userId, peakId]
     );
 
-    await connection.release();
+    await connection.end();
 
     return rows.length > 0;
 };

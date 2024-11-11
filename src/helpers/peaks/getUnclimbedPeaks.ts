@@ -67,7 +67,7 @@ const getUnclimbedPeaks = async (
             : []),
     ]);
 
-    await connection.release();
+    await connection.end();
 
     return rows;
 };

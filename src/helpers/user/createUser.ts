@@ -72,7 +72,7 @@ const createUser = async ({
         ]
     );
 
-    await connection.release();
+    await connection.end();
 };
 
 export default createUser;

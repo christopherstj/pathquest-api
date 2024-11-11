@@ -20,7 +20,7 @@ const updateStravaCreds = async (stravaCreds: StravaCreds) => {
         ]
     );
 
-    await connection.release();
+    await connection.end();
 };
 
 export default updateStravaCreds;

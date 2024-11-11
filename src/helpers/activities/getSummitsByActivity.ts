@@ -11,7 +11,7 @@ const getSummitsByActivity = async (activityId: string) => {
         [activityId]
     );
 
-    await connection.release();
+    await connection.end();
 
     return rows;
 };

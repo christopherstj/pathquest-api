@@ -38,7 +38,7 @@ const addActivityMessages = async (activities: ListActivity[]) => {
         ]
     );
 
-    await connection.release();
+    await connection.end();
 };
 
 export default addActivityMessages;

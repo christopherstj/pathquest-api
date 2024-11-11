@@ -31,7 +31,7 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
         [Math.abs(user.lat ?? 0), Math.abs(user.long ?? 0), userId]
     );
 
-    await connection.release();
+    await connection.end();
 
     return rows;
 };

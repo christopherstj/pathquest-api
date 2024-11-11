@@ -14,7 +14,7 @@ const getPeaks = async (page: number, perPage: number, search?: string) => {
             [search.toLocaleLowerCase(), perPage, skip]
         );
 
-        await connection.release();
+        await connection.end();
 
         return rows;
     } else {
@@ -23,7 +23,7 @@ const getPeaks = async (page: number, perPage: number, search?: string) => {
             [perPage, skip]
         );
 
-        await connection.release();
+        await connection.end();
 
         return rows;
     }

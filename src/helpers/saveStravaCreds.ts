@@ -19,7 +19,7 @@ const saveStravaCreds = async (creds: StravaCredsDb) => {
         ]
     );
 
-    await connection.release();
+    await connection.end();
 };
 
 export default saveStravaCreds;

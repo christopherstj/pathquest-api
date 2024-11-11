@@ -7,8 +7,6 @@ const getUncompletedChallenges = async (
 ): Promise<ChallengeProgress[]> => {
     const connection = await getCloudSqlConnection();
 
-    console.log("userId", userId);
-
     const [rows] = await connection.query<
         (ChallengeProgress & RowDataPacket)[]
     >(
@@ -35,7 +33,7 @@ const getUncompletedChallenges = async (
         [userId]
     );
 
-    await connection.release();
+    await connection.end();
 
     return rows;
 };

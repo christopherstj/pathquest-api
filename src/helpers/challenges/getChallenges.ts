@@ -20,7 +20,7 @@ const getChallenges = async (
             [search.toLocaleLowerCase(), perPage, skip]
         );
 
-        await connection.release();
+        await connection.end();
 
         return rows;
     } else {
@@ -31,7 +31,7 @@ const getChallenges = async (
             [perPage, skip]
         );
 
-        await connection.release();
+        await connection.end();
 
         return rows;
     }

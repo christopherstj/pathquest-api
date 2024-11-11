@@ -19,7 +19,7 @@ const setUsageData = async (headers: Headers) => {
         [shortTermLimit, dailyLimit, shortTermUsage, dailyUsage]
     );
 
-    await connection.release();
+    await connection.end();
 };
 
 export default setUsageData;

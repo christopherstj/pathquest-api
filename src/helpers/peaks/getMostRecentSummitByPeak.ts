@@ -2,6 +2,7 @@ import { RowDataPacket, format } from "mysql2";
 import Activity from "../../typeDefs/Activity";
 import Peak from "../../typeDefs/Peak";
 import getCloudSqlConnection from "../getCloudSqlConnection";
+import getRecentPeakSummits from "../challenges/getRecentPeakSummits";
 
 const getMostRecentSummitByPeak = async (
     peaks: (Peak & {
@@ -16,6 +17,7 @@ const getMostRecentSummitByPeak = async (
             isSummitted?: boolean;
         };
         activity?: Activity;
+        ascents: { timestamp: string; activityId: string; timezone?: string }[];
     }[]
 > => {
     const promises = peaks.map(async (peak) => {
@@ -45,11 +47,14 @@ const getMostRecentSummitByPeak = async (
                     (Activity & RowDataPacket)[]
                 >(queryString);
 
+                const ascents = await getRecentPeakSummits(userId, peak.Id);
+
                 await connection.end();
 
                 return {
                     peak,
                     activity: rows[0] || undefined,
+                    ascents,
                 };
             } else {
                 await connection.end();
@@ -57,12 +62,14 @@ const getMostRecentSummitByPeak = async (
                 return {
                     peak,
                     activity: undefined,
+                    ascents: [],
                 };
             }
         }
         return {
             peak,
             activity: undefined,
+            ascents: [],
         };
     });
 

@@ -83,8 +83,6 @@ const getAllChallenges = async (
 
     await connection.end();
 
-    console.log(rows);
-
     return rows;
 };
 

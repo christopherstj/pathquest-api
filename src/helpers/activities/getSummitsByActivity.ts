@@ -15,3 +15,5 @@ const getSummitsByActivity = async (activityId: string) => {
 
     return rows;
 };
+
+export default getSummitsByActivity;

@@ -3,7 +3,7 @@ import PeakSummit from "../../typeDefs/PeakSummit";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
 
-const getPeakSummits = async (userId: string) => {
+const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
     const connection = await getCloudSqlConnection();
 
     const [rows] = await connection.query<(Peak & RowDataPacket)[]>(
@@ -21,7 +21,7 @@ const getPeakSummits = async (userId: string) => {
     const promises = rows.map(async (row): Promise<PeakSummit> => {
         const [ascents] = await connection.query<
             ({
-                timestamp: number;
+                timestamp: string;
                 activityId: string;
             } & RowDataPacket)[]
         >(

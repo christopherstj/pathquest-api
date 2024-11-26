@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import getActivityByPeak from "../helpers/activities/getActivitiesByPeak";
 import searchActivities from "../helpers/activities/searchActivities";
 import getCoordsByActivity from "../helpers/activities/getCoordsByActivity";
+import getActivityDetails from "../helpers/activities/getActivityDetails";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -16,6 +17,18 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
         const activities = await getActivityByPeak(peakId, userId);
 
         reply.code(200).send(activities);
+    });
+
+    fastify.get<{
+        Params: {
+            activityId: string;
+        };
+    }>("/activities/:activityId", async function (request, reply) {
+        const activityId = request.params.activityId;
+
+        const { activity, peakSummits } = await getActivityDetails(activityId);
+
+        reply.code(200).send({ activity, peakSummits });
     });
 
     fastify.get<{

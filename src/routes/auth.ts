@@ -4,6 +4,7 @@ import { StravaCreds } from "../typeDefs/StravaCreds";
 import updateStravaCreds from "../helpers/strava-creds/updateStravaCreds";
 import getUser from "../helpers/user/getUser";
 import createUser from "../helpers/user/createUser";
+import addUserInterest from "../helpers/user/addUserInterest";
 
 const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -40,6 +41,18 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
         await createUser({ id, name, email });
 
         return { id, name, email, pic };
+    });
+
+    fastify.post<{
+        Body: {
+            email: string;
+        };
+    }>("/user-interest", async (request, reply) => {
+        const { email } = request.body;
+
+        await addUserInterest(email);
+
+        reply.code(200).send({ message: "User interest added" });
     });
 
     done();

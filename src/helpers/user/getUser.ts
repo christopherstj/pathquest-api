@@ -6,7 +6,20 @@ const getUser = async (userId: string) => {
     const connection = await getCloudSqlConnection();
 
     const [rows] = await connection.query<(User & RowDataPacket)[]>(
-        "SELECT id, `name`, email, pic, updateDescription = 1 updateDescription, city, state, country, lat, `long`, units FROM User WHERE id = ? LIMIT 1",
+        `SELECT id, 
+        \`name\`, 
+        email,
+        pic,
+        updateDescription = 1 updateDescription,
+        city,
+        state,
+        country,
+        lat,
+        \`long\`,
+        units,
+        isSubscribed = 1 isSubscribed,
+        isLifetimeFree = 1 isLifetimeFree
+        FROM User WHERE id = ? LIMIT 1`,
         [userId]
     );
 

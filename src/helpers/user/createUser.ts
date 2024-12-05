@@ -1,4 +1,6 @@
+import { RowDataPacket } from "mysql2";
 import { StravaCreds } from "../../typeDefs/StravaCreds";
+import User from "../../typeDefs/User";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import getStravaAccessToken from "../getStravaAccessToken";
 import { Client } from "@googlemaps/google-maps-services-js";
@@ -17,6 +19,16 @@ const createUser = async ({
     const token = await getStravaAccessToken(id);
 
     const connection = await getCloudSqlConnection();
+
+    const [user] = await connection.query<(User & RowDataPacket)[]>(
+        `SELECT * FROM User WHERE id = ?`,
+        [id]
+    );
+
+    if (user.length > 0) {
+        await connection.end();
+        return;
+    }
 
     const stravaRes = await fetch("https://www.strava.com/api/v3/athlete", {
         headers: {

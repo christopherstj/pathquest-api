@@ -1,24 +1,43 @@
-// import { FastifyInstance } from "fastify";
-// import createUser from "../helpers/user/createUser";
-// import Stripe from "stripe";
+import { FastifyInstance } from "fastify";
+import createSubscription from "../helpers/billing/createSubscription";
+import deleteSubscription from "../helpers/billing/deleteSubscription";
 
-// const billing = (fastify: FastifyInstance, _: any, done: any) => {
-//     fastify.post<{
-//         Body: {
-//             id: string;
-//             name: string;
-//             email: string | null;
-//             pic: string | null;
-//         };
-//     }>("/", async (request, reply) => {
-//         const { id, name, email, pic } = request.body;
+const billing = (fastify: FastifyInstance, _: any, done: any) => {
+    fastify.post<{
+        Body: {
+            userId: string;
+            email: string | null;
+            stripeUserId: string | null;
+        };
+    }>("/billing/create-subscription", async (request, reply) => {
+        const { userId, email, stripeUserId } = request.body;
 
-//         await createUser({ id, name, email });
+        if (!stripeUserId) {
+            reply.code(400).send();
+        }
 
-//         return { id, name, email, pic };
-//     });
+        await createSubscription(userId, email, stripeUserId);
 
-//     done();
-// };
+        reply.code(200).send({ message: "Subscription created" });
+    });
 
-// export default billing;
+    fastify.post<{
+        Body: {
+            stripeUserId?: string;
+        };
+    }>("/billing/delete-subscription", async (request, reply) => {
+        const { stripeUserId } = request.body;
+
+        if (!stripeUserId) {
+            reply.code(400).send();
+        }
+
+        await deleteSubscription(stripeUserId ?? null);
+
+        reply.code(200).send({ message: "Subscription deleted" });
+    });
+
+    done();
+};
+
+export default billing;

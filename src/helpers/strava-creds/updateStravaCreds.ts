@@ -4,6 +4,8 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 const updateStravaCreds = async (stravaCreds: StravaCreds) => {
     const connection = await getCloudSqlConnection();
 
+    console.log("stravaCreds: ", stravaCreds);
+
     const { providerAccountId, access_token, refresh_token, expires_at } =
         stravaCreds;
 

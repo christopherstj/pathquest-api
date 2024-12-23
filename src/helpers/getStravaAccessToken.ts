@@ -39,23 +39,29 @@ const getStravaAccessToken = async (userId: string) => {
         (StravaCredsDb & ResultSetHeader)[]
     >(`SELECT * FROM StravaToken WHERE userId = ${userId} LIMIT 1`);
 
-    const creds = rows[0];
-
-    const { accessToken, refreshToken, accessTokenExpiresAt } = creds;
-
-    await connection.end();
-
-    if (!refreshToken || refreshToken === "") {
+    if (rows.length === 0) {
+        await connection.end();
+        console.error("No strava creds found for user", userId);
         return null;
-    } else if (!accessToken || accessToken === "") {
-        return await getNewToken(refreshToken, userId);
-    } else if (
-        accessTokenExpiresAt &&
-        accessTokenExpiresAt * 1000 < new Date().getTime()
-    ) {
-        return await getNewToken(refreshToken, userId);
     } else {
-        return accessToken;
+        const creds = rows[0];
+
+        const { accessToken, refreshToken, accessTokenExpiresAt } = creds;
+
+        await connection.end();
+
+        if (!refreshToken || refreshToken === "") {
+            return null;
+        } else if (!accessToken || accessToken === "") {
+            return await getNewToken(refreshToken, userId);
+        } else if (
+            accessTokenExpiresAt &&
+            accessTokenExpiresAt * 1000 < new Date().getTime()
+        ) {
+            return await getNewToken(refreshToken, userId);
+        } else {
+            return accessToken;
+        }
     }
 };
 

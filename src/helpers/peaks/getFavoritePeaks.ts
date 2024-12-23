@@ -19,10 +19,10 @@ const getFavoritePeaks = async (userId: string) => {
             LEFT JOIN UserPeakFavorite upf
             ON p.id = upf.peakId
             WHERE ap2.id IS NULL
-            AND upf.userId IS NOT NULL 
+            AND upf.userId = ?
             ORDER BY p.Altitude DESC
         `,
-        [userId]
+        [userId, userId]
     );
 
     await connection.end();

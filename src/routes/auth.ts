@@ -38,6 +38,8 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
     }>("/signup", async (request, reply) => {
         const { id, name, email, pic } = request.body;
 
+        console.log("Creating user", id, name, email);
+
         await createUser({ id, name, email });
 
         return { id, name, email, pic };

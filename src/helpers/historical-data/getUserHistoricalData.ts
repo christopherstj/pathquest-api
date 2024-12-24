@@ -24,7 +24,7 @@ const getUserHistoricalData = async (userId: string) => {
         if (activities.length === 0) {
             hasMoreData = false;
         } else {
-            await addActivityMessages(activities);
+            await addActivityMessages(activities, userId);
         }
     }
 

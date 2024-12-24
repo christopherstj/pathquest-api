@@ -7,11 +7,14 @@ import mysql from "mysql2/promise";
 
 const subscriptionId = process.env.STRAVA_SUBSCRIPTION_ID ?? "";
 
-const addActivityMessages = async (activities: ListActivity[]) => {
+const addActivityMessages = async (
+    activities: ListActivity[],
+    userId: string
+) => {
     const connection = await getCloudSqlConnection();
 
     await connection.query(
-        `INSERT INTO EventQueue (\`action\`, created, jsonData, isWebhook) VALUES ?`,
+        `INSERT INTO EventQueue (userId, \`action\`, created, jsonData, isWebhook) VALUES ?`,
         [
             activities.map((activity) => {
                 const event: StravaEvent = {
@@ -29,6 +32,7 @@ const addActivityMessages = async (activities: ListActivity[]) => {
                     isWebhook: false,
                 };
                 return [
+                    userId,
                     message.action,
                     message.created,
                     message.jsonData,

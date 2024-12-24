@@ -38,7 +38,10 @@ const createUser = async ({
 
     const userData = await stravaRes.json();
 
-    const { city, state, country, profile_medium } = userData;
+    const { city, state, country, profile_medium, measurement_preference } =
+        userData;
+
+    const units = measurement_preference === "feet" ? "imperial" : "metric";
 
     if (city && state && country) {
         const geocodeRes = await client.geocode({
@@ -52,8 +55,8 @@ const createUser = async ({
         const lng = geocodeRes.data.results[0].geometry.location.lng;
 
         await connection.execute(
-            `INSERT INTO User (id, name, email, pic, city, state, country, lat, \`long\`)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO User (id, name, email, pic, city, state, country, lat, \`long\`, units)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
             name = ?,
             email = ?,
@@ -62,7 +65,8 @@ const createUser = async ({
             state = ?,
             country = ?,
             lat = ?,
-            \`long\` = ?
+            \`long\` = ?,
+            units = ?
             `,
             [
                 id,
@@ -74,6 +78,7 @@ const createUser = async ({
                 country ?? null,
                 lat ?? null,
                 lng ?? null,
+                units,
                 name,
                 email,
                 profile_medium ?? null,
@@ -82,12 +87,13 @@ const createUser = async ({
                 country ?? null,
                 lat ?? null,
                 lng ?? null,
+                units,
             ]
         );
     } else {
         await connection.execute(
-            `INSERT INTO User (id, name, email, pic)
-            VALUES (?, ?, ?, ?)
+            `INSERT INTO User (id, name, email, pic, units)
+            VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
             name = ?,
             email = ?,
@@ -98,9 +104,11 @@ const createUser = async ({
                 name,
                 email,
                 profile_medium ?? null,
+                units,
                 name,
                 email,
                 profile_medium ?? null,
+                units,
             ]
         );
     }

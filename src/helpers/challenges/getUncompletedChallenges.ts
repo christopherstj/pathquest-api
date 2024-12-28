@@ -25,9 +25,8 @@ const getUncompletedChallenges = async (
                 LEFT JOIN Activity a ON ap.activityId = a.id
                 WHERE a.userId = ?
             ) ap2 ON p.Id = ap2.peakId
-            WHERE c.id <> 0 
             GROUP BY c.id 
-            HAVING completed < total
+            HAVING total > 0 AND completed < total
             ORDER BY c.id;
         `,
         [userId]

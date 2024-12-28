@@ -3,8 +3,21 @@ import getActivityByPeak from "../helpers/activities/getActivitiesByPeak";
 import searchActivities from "../helpers/activities/searchActivities";
 import getCoordsByActivity from "../helpers/activities/getCoordsByActivity";
 import getActivityDetails from "../helpers/activities/getActivityDetails";
+import getMostRecentActivities from "../helpers/activities/getMostRecentActivities";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
+    fastify.get<{
+        Querystring: {
+            userId: string;
+        };
+    }>("/activities/recent", async function (request, reply) {
+        const userId = request.query.userId;
+
+        const activities = await getMostRecentActivities(userId);
+
+        reply.code(200).send(activities);
+    });
+
     fastify.post<{
         Body: {
             userId: string;

@@ -9,7 +9,11 @@ const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
     const [rows] = await connection.query<(Peak & RowDataPacket)[]>(
         `
         SELECT p.*
-        FROM ActivityPeak ap 
+        FROM (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap 
         LEFT JOIN Peak p ON ap.peakId = p.Id 
         LEFT JOIN Activity a ON ap.activityId = a.id 
         WHERE a.userId = ?
@@ -27,7 +31,11 @@ const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
         >(
             `
             SELECT \`timestamp\`, activityId
-            FROM ActivityPeak ap
+            FROM (
+                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                UNION
+                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            ) ap
             LEFT JOIN Activity a ON ap.activityId = a.id
             WHERE peakId = ?
             AND a.userId = ?

@@ -30,7 +30,11 @@ const getMostRecentSummitByPeak = async (
                     WHEN a.id IS NOT NULL THEN CONCAT("SELECT * FROM Activity WHERE id = ", a.id) ELSE NULL
                     END
                 ) queryString
-                FROM ActivityPeak ap 
+                FROM (
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                    UNION
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                ) ap 
                 LEFT JOIN Activity a ON ap.activityId = a.id 
                 WHERE ap.peakId = ? AND a.userId = ?
                 ORDER BY a.startTime DESC 

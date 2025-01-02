@@ -43,7 +43,11 @@ const searchActivities = async (
         `
         SELECT a.id, a.startLat, a.startLong, a.distance, a.startTime, a.\`name\`, a.sport, a.timezone, a.gain, COUNT(ap.peakId) peakSummits
         FROM Activity a 
-        LEFT JOIN ActivityPeak ap 
+        LEFT JOIN (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap 
         ON ap.activityId = a.id 
         ${whereClause}
         GROUP BY a.id, a.startLat, a.startLong, a.distance, a.startTime, a.\`name\`, a.timezone, a.gain

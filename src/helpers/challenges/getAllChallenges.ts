@@ -56,7 +56,11 @@ const getAllChallenges = async (
         LEFT JOIN Peak p ON pc.peakId = p.Id
         LEFT JOIN 
             (
-                SELECT ap.peakId, COUNT(ap.peakId) > 0 summitted FROM ActivityPeak ap
+                SELECT ap.peakId, COUNT(ap.peakId) > 0 summitted FROM (
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                    UNION
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                ) ap
                 LEFT JOIN Activity a ON a.id = ap.activityId
                 WHERE a.userId = ?
                 GROUP BY ap.peakId

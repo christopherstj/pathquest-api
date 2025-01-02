@@ -20,7 +20,11 @@ const getMostRecentActivities = async (userId: string) => {
             a.\`gain\`,
             COUNT(ap.id) peakSummits
         FROM \`Activity\` a
-        LEFT JOIN ActivityPeak ap
+        LEFT JOIN (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap
         ON a.id = ap.activityId
         WHERE userId = ?
         GROUP BY a.id

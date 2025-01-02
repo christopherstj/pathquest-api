@@ -10,6 +10,8 @@ import getFavoritePeaks from "../helpers/peaks/getFavoritePeaks";
 import addFavoritePeak from "../helpers/peaks/addFavoritePeak";
 import removeFavoritePeak from "../helpers/peaks/removeFavoritePeak";
 import getIsPeakFavorited from "../helpers/peaks/getIsPeakFavorited";
+import ManualPeakSummit from "../typeDefs/ManualPeakSummit";
+import addManualPeakSummit from "../helpers/peaks/addManualPeakSummit";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -110,6 +112,14 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 .code(400)
                 .send({ message: "Bounds or search query required" });
         }
+    });
+
+    fastify.post<{
+        Body: ManualPeakSummit;
+    }>("/peaks/summits/manual", async (request, reply) => {
+        const data = request.body;
+        await addManualPeakSummit(data);
+        reply.code(200).send({ message: "Summit added" });
     });
 
     fastify.post<{

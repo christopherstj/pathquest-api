@@ -4,6 +4,7 @@ import searchActivities from "../helpers/activities/searchActivities";
 import getCoordsByActivity from "../helpers/activities/getCoordsByActivity";
 import getActivityDetails from "../helpers/activities/getActivityDetails";
 import getMostRecentActivities from "../helpers/activities/getMostRecentActivities";
+import searchNearestActivities from "../helpers/activities/searchNearestActivities";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -14,6 +15,32 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
         const userId = request.query.userId;
 
         const activities = await getMostRecentActivities(userId);
+
+        reply.code(200).send(activities);
+    });
+
+    fastify.get<{
+        Querystring: {
+            userId: string;
+            lat: string;
+            lng: string;
+            page?: string;
+            search?: string;
+        };
+    }>("/activities/search/nearest", async (request, reply) => {
+        const userId = request.query.userId;
+        const lat = parseFloat(request.query.lat);
+        const lng = parseFloat(request.query.lng);
+        const search = request.query.search;
+        const page = request.query.page ? parseInt(request.query.page) : 1;
+
+        const activities = await searchNearestActivities(
+            lat,
+            lng,
+            userId,
+            page,
+            search
+        );
 
         reply.code(200).send(activities);
     });
@@ -40,6 +67,8 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
         const activityId = request.params.activityId;
 
         const { activity, peakSummits } = await getActivityDetails(activityId);
+
+        console.log(peakSummits);
 
         reply.code(200).send({ activity, peakSummits });
     });

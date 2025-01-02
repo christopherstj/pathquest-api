@@ -13,7 +13,11 @@ const getRecentPeakSummits = async (userId: string, peakId: string) => {
     >(
         `
         SELECT ap.\`timestamp\`, ap.activityId, a.\`timezone\`
-        FROM ActivityPeak ap
+        FROM (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap
         LEFT JOIN Activity a ON ap.activityId = a.id
         WHERE peakId = ?
         AND a.userId = ?

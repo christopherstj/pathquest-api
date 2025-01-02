@@ -7,7 +7,11 @@ const getSummitsByActivity = async (activityId: string) => {
     const [rows] = await connection.query<
         ({ timestamp: string } & RowDataPacket)[]
     >(
-        "SELECT ap.`timestamp` FROM Activity a LEFT JOIN ActivityPeak ap ON a.id = ap.activityId WHERE a.id = ?",
+        `SELECT ap.\`timestamp\` FROM Activity a LEFT JOIN (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap ON a.id = ap.activityId WHERE a.id = ?`,
         [activityId]
     );
 

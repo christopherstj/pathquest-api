@@ -97,7 +97,8 @@ const createUser = async ({
             ON DUPLICATE KEY UPDATE
             name = ?,
             email = ?,
-            pic = ?
+            pic = ?,
+            units = ?
             `,
             [
                 id,

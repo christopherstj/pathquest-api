@@ -6,6 +6,7 @@ import getActivityDetails from "../helpers/activities/getActivityDetails";
 import getMostRecentActivities from "../helpers/activities/getMostRecentActivities";
 import searchNearestActivities from "../helpers/activities/searchNearestActivities";
 import deleteActivity from "../helpers/activities/deleteActivity";
+import getActivityOwnerId from "../helpers/activities/getActivityOwnerId";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -63,9 +64,17 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
         Params: {
             activityId: string;
+            userId: string;
         };
-    }>("/activities/:activityId", async function (request, reply) {
-        const activityId = request.params.activityId;
+    }>("/activities/:userId/:activityId", async function (request, reply) {
+        const { userId, activityId } = request.params;
+
+        const ownerId = await getActivityOwnerId(activityId);
+
+        if (!ownerId || ownerId !== userId) {
+            reply.code(403).send({ message: "Unauthorized" });
+            return;
+        }
 
         const { activity, peakSummits } = await getActivityDetails(activityId);
 
@@ -75,9 +84,17 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.delete<{
         Params: {
             activityId: string;
+            userId: string;
         };
-    }>("/activities/:activityId", async function (request, reply) {
-        const activityId = request.params.activityId;
+    }>("/activities/:userId/:activityId", async function (request, reply) {
+        const { userId, activityId } = request.params;
+
+        const ownerId = await getActivityOwnerId(activityId);
+
+        if (!ownerId || ownerId !== userId) {
+            reply.code(403).send({ message: "Unauthorized" });
+            return;
+        }
 
         await deleteActivity(activityId);
 
@@ -87,14 +104,25 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
         Params: {
             activityId: string;
+            userId: string;
         };
-    }>("/activities/:activityId/coords", async function (request, reply) {
-        const activityId = request.params.activityId;
+    }>(
+        "/activities/:userId/:activityId/coords",
+        async function (request, reply) {
+            const { userId, activityId } = request.params;
 
-        const coords = await getCoordsByActivity(activityId);
+            const ownerId = await getActivityOwnerId(activityId);
 
-        reply.code(200).send({ coords });
-    });
+            if (!ownerId || ownerId !== userId) {
+                reply.code(403).send({ message: "Unauthorized" });
+                return;
+            }
+
+            const coords = await getCoordsByActivity(activityId);
+
+            reply.code(200).send({ coords });
+        }
+    );
 
     fastify.get<{
         Querystring: {

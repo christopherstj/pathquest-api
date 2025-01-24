@@ -24,7 +24,7 @@ const getPeaksByActivity = async (activityId: string): Promise<Peak[]> => {
 
     connection.release();
 
-    return rows;
+    return rows.filter((row) => row.Id !== null);
 };
 
 export default getPeaksByActivity;

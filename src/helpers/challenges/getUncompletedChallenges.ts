@@ -5,7 +5,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 const getUncompletedChallenges = async (
     userId: string
 ): Promise<ChallengeProgress[]> => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         (ChallengeProgress & RowDataPacket)[]
@@ -36,7 +38,7 @@ const getUncompletedChallenges = async (
         [userId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

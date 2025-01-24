@@ -9,7 +9,9 @@ const searchNearestActivities = async (
     page: number,
     search?: string
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const rowsPerPage = 50;
     const offset = (page - 1) * rowsPerPage;
@@ -48,7 +50,7 @@ const searchNearestActivities = async (
         params
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

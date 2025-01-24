@@ -22,7 +22,9 @@ const getMostRecentSummitByPeak = async (
 > => {
     const promises = peaks.map(async (peak) => {
         if (peak.isSummitted) {
-            const connection = await getCloudSqlConnection();
+            const pool = await getCloudSqlConnection();
+
+            const connection = await pool.getConnection();
 
             const query = `
                 SELECT (
@@ -53,7 +55,7 @@ const getMostRecentSummitByPeak = async (
 
                 const ascents = await getRecentPeakSummits(userId, peak.Id);
 
-                await connection.end();
+                connection.release();
 
                 return {
                     peak,
@@ -61,7 +63,7 @@ const getMostRecentSummitByPeak = async (
                     ascents,
                 };
             } else {
-                await connection.end();
+                connection.release();
 
                 return {
                     peak,

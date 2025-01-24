@@ -5,14 +5,16 @@ const deleteSubscription = async (stripeUserId: string | null) => {
         return;
     }
 
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     await connection.execute(
         `UPDATE User SET isSubscribed = 0 WHERE stripeUserId = ?`,
         [stripeUserId]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default deleteSubscription;

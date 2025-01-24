@@ -4,7 +4,9 @@ import getUser from "../user/getUser";
 import Peak from "../../typeDefs/Peak";
 
 const getNearestUnclimbedPeaks = async (userId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const user = await getUser(userId);
 
@@ -39,7 +41,7 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
             [Math.abs(user.lat ?? 0), Math.abs(user.long ?? 0), userId]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     } else {
@@ -65,7 +67,7 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
             [userId]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     }

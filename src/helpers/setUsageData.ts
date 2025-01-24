@@ -12,14 +12,16 @@ const setUsageData = async (headers: Headers) => {
     const [shortTermLimit, dailyLimit] = limitHeader.split(",");
     const [shortTermUsage, dailyUsage] = usageHeader.split(",");
 
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     await connection.execute(
         `UPDATE StravaRateLimit SET shortTermLimit = ?, dailyLimit = ?, shortTermUsage = ?, dailyUsage = ?`,
         [shortTermLimit, dailyLimit, shortTermUsage, dailyUsage]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default setUsageData;

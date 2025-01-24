@@ -8,7 +8,9 @@ const getUnclimbedPeaks = async (
     search?: string,
     showSummittedPeaks?: boolean
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     if (!bounds && !search) {
         return [];
@@ -71,7 +73,7 @@ const getUnclimbedPeaks = async (
             : []),
     ]);
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

@@ -3,7 +3,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const getActivityByPeak = async (peakId: string, userId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<(Activity & RowDataPacket)[]>(
         `SELECT DISTINCT a.* FROM (
@@ -14,7 +16,7 @@ const getActivityByPeak = async (peakId: string, userId: string) => {
         [peakId, userId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

@@ -3,7 +3,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const getMostRecentActivities = async (userId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         (Activity & { peakSummits: number } & RowDataPacket)[]
@@ -34,7 +36,7 @@ const getMostRecentActivities = async (userId: string) => {
         [userId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

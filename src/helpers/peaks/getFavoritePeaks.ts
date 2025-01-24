@@ -3,7 +3,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
 
 const getFavoritePeaks = async (userId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         (Peak & { isFavorited: boolean } & RowDataPacket)[]
@@ -29,7 +31,7 @@ const getFavoritePeaks = async (userId: string) => {
         [userId, userId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

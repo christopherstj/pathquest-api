@@ -1,14 +1,16 @@
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const removeFavoritePeak = async (userId: string, peakId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     await connection.query(
         "DELETE FROM UserPeakFavorite WHERE userId = ? AND peakId = ?",
         [userId, peakId]
     );
 
-    await connection.end();
+    connection.release();
 
     return;
 };

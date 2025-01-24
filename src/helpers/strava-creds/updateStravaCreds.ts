@@ -2,7 +2,9 @@ import { StravaCreds } from "../../typeDefs/StravaCreds";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const updateStravaCreds = async (stravaCreds: StravaCreds) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     console.log("stravaCreds: ", stravaCreds);
 
@@ -22,7 +24,7 @@ const updateStravaCreds = async (stravaCreds: StravaCreds) => {
         ]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default updateStravaCreds;

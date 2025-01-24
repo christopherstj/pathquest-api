@@ -18,7 +18,9 @@ const getAllChallenges = async (
     },
     search?: string
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const getWhereClause = () => {
         const clauses = [] as string[];
@@ -85,7 +87,7 @@ const getAllChallenges = async (
             : []),
     ]);
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

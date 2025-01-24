@@ -9,7 +9,9 @@ const getSummitsByPeakAndActivity = async (
         timestamp: string;
     }[]
 > => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         ({ timestamp: string } & RowDataPacket)[]
@@ -26,7 +28,7 @@ const getSummitsByPeakAndActivity = async (
         [activityId, peakId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

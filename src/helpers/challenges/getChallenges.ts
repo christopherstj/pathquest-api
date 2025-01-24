@@ -7,7 +7,9 @@ const getChallenges = async (
     perPage: number,
     search?: string
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const skip = (page - 1) * perPage;
 
@@ -20,7 +22,7 @@ const getChallenges = async (
             [search.toLocaleLowerCase(), perPage, skip]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     } else {
@@ -31,7 +33,7 @@ const getChallenges = async (
             [perPage, skip]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     }

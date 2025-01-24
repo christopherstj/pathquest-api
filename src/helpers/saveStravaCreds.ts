@@ -2,7 +2,9 @@ import { StravaCredsDb } from "../typeDefs/StravaCredsDb";
 import getCloudSqlConnection from "./getCloudSqlConnection";
 
 const saveStravaCreds = async (creds: StravaCredsDb) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const { userId, accessToken, refreshToken, accessTokenExpiresAt } = creds;
 
@@ -19,7 +21,7 @@ const saveStravaCreds = async (creds: StravaCredsDb) => {
         ]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default saveStravaCreds;

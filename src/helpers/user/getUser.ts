@@ -3,7 +3,9 @@ import User from "../../typeDefs/User";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getUser = async (userId: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<(User & RowDataPacket)[]>(
         `SELECT id, 
@@ -25,7 +27,7 @@ const getUser = async (userId: string) => {
 
     const user = rows[0];
 
-    connection.end();
+    connection.release();
 
     return user;
 };

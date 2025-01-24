@@ -12,7 +12,9 @@ const getPeaksByChallenge = async (
       })[]
     | undefined
 > => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         (Peak & {
@@ -41,7 +43,7 @@ const getPeaksByChallenge = async (
         [userId, challengeId]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

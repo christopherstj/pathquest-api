@@ -5,14 +5,16 @@ const createSubscription = async (
     email: string | null,
     stripeUserId: string | null
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     await connection.execute(
         `UPDATE User SET isSubscribed = 1, stripeUserId = ?, email = ? WHERE id = ?`,
         [stripeUserId, email, userId]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default createSubscription;

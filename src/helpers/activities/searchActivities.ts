@@ -20,7 +20,9 @@ const searchActivities = async (
         throw new Error("Search query must be at least 3 characters long");
     }
 
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const clauses: string[] = ["userId = ?"];
     if (bounds) {
@@ -66,7 +68,7 @@ const searchActivities = async (
         ]
     );
 
-    await connection.end();
+    connection.release();
 
     return rows;
 };

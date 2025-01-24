@@ -5,6 +5,7 @@ import getCoordsByActivity from "../helpers/activities/getCoordsByActivity";
 import getActivityDetails from "../helpers/activities/getActivityDetails";
 import getMostRecentActivities from "../helpers/activities/getMostRecentActivities";
 import searchNearestActivities from "../helpers/activities/searchNearestActivities";
+import deleteActivity from "../helpers/activities/deleteActivity";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -68,9 +69,19 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
 
         const { activity, peakSummits } = await getActivityDetails(activityId);
 
-        console.log(peakSummits);
-
         reply.code(200).send({ activity, peakSummits });
+    });
+
+    fastify.delete<{
+        Params: {
+            activityId: string;
+        };
+    }>("/activities/:activityId", async function (request, reply) {
+        const activityId = request.params.activityId;
+
+        await deleteActivity(activityId);
+
+        reply.code(200);
     });
 
     fastify.get<{

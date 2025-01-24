@@ -12,7 +12,9 @@ const getPeakById = async (
       })
     | undefined
 > => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
         (Peak & {
@@ -42,7 +44,7 @@ const getPeakById = async (
 
     const peak = rows[0] || undefined;
 
-    connection.end();
+    connection.release();
 
     return peak;
 };

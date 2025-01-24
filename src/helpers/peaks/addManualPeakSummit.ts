@@ -3,7 +3,9 @@ import ManualPeakSummit from "../../typeDefs/ManualPeakSummit";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     console.log(newEntry);
 
@@ -33,7 +35,7 @@ const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
         ]
     );
 
-    await connection.end();
+    connection.release();
 
     return newEntry;
 };

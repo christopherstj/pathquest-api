@@ -11,7 +11,9 @@ const addActivityMessages = async (
     activities: ListActivity[],
     userId: string
 ) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     await connection.query(
         `INSERT INTO EventQueue (userId, \`action\`, created, jsonData, isWebhook) VALUES ?`,
@@ -42,7 +44,7 @@ const addActivityMessages = async (
         ]
     );
 
-    await connection.end();
+    connection.release();
 };
 
 export default addActivityMessages;

@@ -18,7 +18,9 @@ const createUser = async ({
 }) => {
     const token = await getStravaAccessToken(id);
 
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [user] = await connection.query<(User & RowDataPacket)[]>(
         `SELECT * FROM User WHERE id = ?`,
@@ -26,7 +28,7 @@ const createUser = async ({
     );
 
     if (user.length > 0) {
-        await connection.end();
+        connection.release();
         return;
     }
 
@@ -114,7 +116,7 @@ const createUser = async ({
         );
     }
 
-    await connection.end();
+    connection.release();
 };
 
 export default createUser;

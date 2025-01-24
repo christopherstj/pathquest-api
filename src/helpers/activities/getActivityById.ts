@@ -5,7 +5,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 const getActivityById = async (
     activityId: string
 ): Promise<Activity | null> => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const [rows] = await connection.query<(Activity & RowDataPacket)[]>(
         `
@@ -17,7 +19,7 @@ const getActivityById = async (
         [activityId]
     );
 
-    await connection.end();
+    connection.release();
 
     if (rows.length === 0) {
         return null;

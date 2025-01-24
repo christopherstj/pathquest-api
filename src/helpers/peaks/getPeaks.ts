@@ -4,7 +4,9 @@ import Peak from "../../typeDefs/Peak";
 import mysql from "mysql2/promise";
 
 const getPeaks = async (page: number, perPage: number, search?: string) => {
-    const connection = await getCloudSqlConnection();
+    const pool = await getCloudSqlConnection();
+
+    const connection = await pool.getConnection();
 
     const skip = (page - 1) * perPage;
 
@@ -14,7 +16,7 @@ const getPeaks = async (page: number, perPage: number, search?: string) => {
             [search.toLocaleLowerCase(), perPage, skip]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     } else {
@@ -23,7 +25,7 @@ const getPeaks = async (page: number, perPage: number, search?: string) => {
             [perPage, skip]
         );
 
-        await connection.end();
+        connection.release();
 
         return rows;
     }

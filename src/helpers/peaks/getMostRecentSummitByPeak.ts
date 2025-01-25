@@ -10,76 +10,78 @@ const getMostRecentSummitByPeak = async (
         isSummitted?: boolean;
     })[],
     userId: string
-): Promise<
-    {
-        peak: Peak & {
-            isFavorited: boolean;
-            isSummitted?: boolean;
-        };
-        activity?: Activity;
+): Promise<{
+    peaks: (Peak & {
+        isFavorited: boolean;
+        isSummitted?: boolean;
         ascents: { timestamp: string; activityId: string; timezone?: string }[];
-    }[]
-> => {
-    const promises = peaks.map(async (peak) => {
-        if (peak.isSummitted) {
-            const pool = await getCloudSqlConnection();
+    })[];
+    activityCoords: {
+        id: string;
+        coords: Activity["coords"];
+    }[];
+}> => {
+    const pool = await getCloudSqlConnection();
 
-            const connection = await pool.getConnection();
+    const connection = await pool.getConnection();
 
-            const query = `
-                SELECT (
-                    CASE 
-                    WHEN a.id IS NOT NULL THEN CONCAT("SELECT * FROM Activity WHERE id = ", a.id) ELSE NULL
-                    END
-                ) queryString
-                FROM (
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
-                    UNION
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-                ) ap 
-                LEFT JOIN Activity a ON ap.activityId = a.id 
-                WHERE ap.peakId = ? AND a.userId = ?
-                ORDER BY a.startTime DESC 
-                LIMIT 1
-            `;
+    const query = `
+        SELECT a.id
+        FROM (
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            UNION
+            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+        ) ap 
+        LEFT JOIN Activity a ON ap.activityId = a.id 
+        WHERE ap.peakId IN (${peaks
+            .map((p) => `'${p.Id}'`)
+            .join(", ")}) AND a.userId = ?
+        ORDER BY a.startTime DESC 
+    `;
 
-            const [queryStrings] = await connection.query<
-                ({ queryString: string } & RowDataPacket)[]
-            >(query, [peak.Id, userId]);
+    const [ids] = await connection.query<({ id: string } & RowDataPacket)[]>(
+        query,
+        [userId]
+    );
 
-            if (queryStrings.length > 0 && queryStrings[0]) {
-                const { queryString } = queryStrings[0];
-                const [rows] = await connection.query<
-                    (Activity & RowDataPacket)[]
-                >(queryString);
+    const distinctIds = ids
+        .map((id) => id.id)
+        .filter((id, index, self) => self.indexOf(id) === index);
 
-                const ascents = await getRecentPeakSummits(userId, peak.Id);
+    if (distinctIds.length > 0) {
+        const queryString = `SELECT id, coords FROM Activity WHERE id IN (${distinctIds
+            .map((id) => `'${id}'`)
+            .join(", ")})`;
 
-                connection.release();
+        console.log(format(queryString));
+        const [rows] = await connection.query<
+            ({ coords: Activity["coords"]; id: string } & RowDataPacket)[]
+        >(queryString);
 
-                return {
-                    peak,
-                    activity: rows[0] || undefined,
-                    ascents,
-                };
-            } else {
-                connection.release();
+        connection.release();
 
-                return {
-                    peak,
-                    activity: undefined,
-                    ascents: [],
-                };
-            }
-        }
+        const peaksPromises = peaks.map(async (peak) => {
+            const peakSummits = await getRecentPeakSummits(peak.Id, userId);
+
+            return {
+                ...peak,
+                ascents: peakSummits,
+            };
+        });
+
+        const peaksToReturn = await Promise.all(peaksPromises);
+
         return {
-            peak,
-            activity: undefined,
-            ascents: [],
+            peaks: peaksToReturn,
+            activityCoords: rows,
         };
-    });
-
-    return Promise.all(promises);
+    } else {
+        connection.release();
+        return {
+            peaks: peaks.map((p) => ({ ...p, ascents: [] })),
+            activityCoords: [],
+        };
+    }
 };
 
 export default getMostRecentSummitByPeak;

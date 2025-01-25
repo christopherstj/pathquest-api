@@ -54,7 +54,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
 
             reply.code(200).send({
                 challenge,
-                peaks: data,
+                ...data,
             });
         } else {
             reply.code(200).send([]);

@@ -52,6 +52,8 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
         if (peaks) {
             const data = await getMostRecentSummitByPeak(peaks, userId);
 
+            console.log(peaks.filter((p) => p.isSummitted));
+
             reply.code(200).send({
                 challenge,
                 ...data,

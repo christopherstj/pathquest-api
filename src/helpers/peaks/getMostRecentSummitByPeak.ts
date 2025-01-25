@@ -61,7 +61,14 @@ const getMostRecentSummitByPeak = async (
         connection.release();
 
         const peaksPromises = peaks.map(async (peak) => {
-            const peakSummits = await getRecentPeakSummits(peak.Id, userId);
+            if (!peak.isSummitted)
+                return {
+                    ...peak,
+                    ascents: [],
+                };
+            const peakSummits = await getRecentPeakSummits(userId, peak.Id);
+
+            console.log(peakSummits);
 
             return {
                 ...peak,

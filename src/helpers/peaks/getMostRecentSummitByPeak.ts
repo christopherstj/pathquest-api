@@ -53,7 +53,6 @@ const getMostRecentSummitByPeak = async (
             .map((id) => `'${id}'`)
             .join(", ")})`;
 
-        console.log(format(queryString));
         const [rows] = await connection.query<
             ({ coords: Activity["coords"]; id: string } & RowDataPacket)[]
         >(queryString);
@@ -67,8 +66,6 @@ const getMostRecentSummitByPeak = async (
                     ascents: [],
                 };
             const peakSummits = await getRecentPeakSummits(userId, peak.Id);
-
-            console.log(peakSummits);
 
             return {
                 ...peak,

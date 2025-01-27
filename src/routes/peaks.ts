@@ -12,6 +12,7 @@ import removeFavoritePeak from "../helpers/peaks/removeFavoritePeak";
 import getIsPeakFavorited from "../helpers/peaks/getIsPeakFavorited";
 import ManualPeakSummit from "../typeDefs/ManualPeakSummit";
 import addManualPeakSummit from "../helpers/peaks/addManualPeakSummit";
+import getRecentSummits from "../helpers/peaks/getRecentSummits";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -129,6 +130,16 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     }>("/peaks/summits/favorite", async function (request, reply) {
         const userId = request.body.userId;
         const peaks = await getFavoritePeaks(userId);
+        reply.code(200).send(peaks);
+    });
+
+    fastify.get<{
+        Querystring: {
+            userId: string;
+        };
+    }>("/peaks/summits/recent", async function (request, reply) {
+        const userId = request.query.userId;
+        const peaks = await getRecentSummits(userId);
         reply.code(200).send(peaks);
     });
 

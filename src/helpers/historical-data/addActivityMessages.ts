@@ -28,6 +28,7 @@ const addActivityMessages = async (
                     subscription_id: parseInt(subscriptionId),
                 };
                 const message: QueueMessage = {
+                    userId,
                     action: "create",
                     created: dayjs().format("YYYY-MM-DD HH:mm:ss"),
                     jsonData: JSON.stringify(event),

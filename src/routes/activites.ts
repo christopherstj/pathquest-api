@@ -7,6 +7,7 @@ import getMostRecentActivities from "../helpers/activities/getMostRecentActiviti
 import searchNearestActivities from "../helpers/activities/searchNearestActivities";
 import deleteActivity from "../helpers/activities/deleteActivity";
 import getActivityOwnerId from "../helpers/activities/getActivityOwnerId";
+import reprocessActivity from "../helpers/activities/reprocessActivity";
 
 const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -160,6 +161,31 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
         const activities = await searchActivities(userId, search, bounds);
 
         reply.code(200).send(activities);
+    });
+
+    fastify.post<{
+        Body: {
+            userId: string;
+            activityId: string;
+        };
+    }>("/activities/reprocess", async (request, reply) => {
+        const userId = request.body.userId;
+        const activityId = request.body.activityId;
+
+        const ownerId = await getActivityOwnerId(activityId);
+
+        if (!ownerId || ownerId !== userId) {
+            reply.code(403).send({ message: "Unauthorized" });
+            return;
+        }
+
+        const result = await reprocessActivity(parseInt(activityId), userId);
+
+        if (result.success) {
+            reply.code(200).send({ message: "Success" });
+        } else {
+            reply.code(500).send({ message: "Failed to reprocess activity" });
+        }
     });
 
     done();

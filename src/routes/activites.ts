@@ -175,6 +175,7 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
         const ownerId = await getActivityOwnerId(activityId);
 
         if (!ownerId || ownerId.toString() !== userId.toString()) {
+            console.log("Owner id does not match", ownerId, userId);
             reply.code(403).send({ message: "Unauthorized" });
             return;
         }

@@ -13,4 +13,5 @@ export default interface Activity {
     sport?: string;
     timezone?: string;
     gain?: number;
+    reprocessing: boolean;
 }

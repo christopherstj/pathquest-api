@@ -4,6 +4,8 @@ import checkRateLimit from "../checkRateLimit";
 import QueueMessage from "../../typeDefs/QueueMessage";
 import addEventToQueue from "../addEventToQueue";
 import { PubSub } from "@google-cloud/pubsub";
+import setReprocessingStatus from "./setReprocessingStatus";
+import getReprocessingStatus from "./getReprocessingStatus";
 
 const subscriptionId = process.env.STRAVA_SUBSCRIPTION_ID ?? "";
 const topicName = process.env.PUBSUB_TOPIC ?? "";
@@ -13,6 +15,17 @@ const pubSubClient = new PubSub();
 const reprocessActivity = async (activityId: number, userId: string) => {
     console.log("Reprocessing activity " + activityId);
     try {
+        const reprocessingStatus = await getReprocessingStatus(
+            activityId.toString()
+        );
+
+        if (reprocessingStatus) {
+            console.log(
+                "Activity " + activityId + " is already being reprocessed"
+            );
+            return { success: false };
+        }
+
         const newEvent: StravaEvent = {
             aspect_type: "create",
             event_time: dayjs().unix(),
@@ -42,6 +55,8 @@ const reprocessActivity = async (activityId: number, userId: string) => {
         } else {
             await addEventToQueue(message);
         }
+
+        await setReprocessingStatus(activityId.toString(), true);
 
         return { success: true };
     } catch (err) {

@@ -11,7 +11,7 @@ const getActivityById = async (
 
     const [rows] = await connection.query<(Activity & RowDataPacket)[]>(
         `
-        SELECT a.*
+        SELECT a.*, pendingReprocess = 1 reprocessing
         FROM Activity a
         WHERE a.id = ?
         LIMIT 1

@@ -5,7 +5,10 @@ export default interface Activity {
     startLat: number;
     startLong: number;
     distance: number;
-    coords?: string | [number, number][];
+    coords: [number, number][];
+    vertProfile?: number[];
+    distanceStream?: number[];
+    timeStream?: number[];
     startTime: number;
     sport?: string;
     timezone?: string;

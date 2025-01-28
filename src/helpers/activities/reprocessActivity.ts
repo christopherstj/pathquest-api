@@ -11,6 +11,7 @@ const topicName = process.env.PUBSUB_TOPIC ?? "";
 const pubSubClient = new PubSub();
 
 const reprocessActivity = async (activityId: number, userId: string) => {
+    console.log("Reprocessing activity " + activityId);
     try {
         const newEvent: StravaEvent = {
             aspect_type: "create",

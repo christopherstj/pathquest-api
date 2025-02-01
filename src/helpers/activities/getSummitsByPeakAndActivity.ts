@@ -6,7 +6,9 @@ const getSummitsByPeakAndActivity = async (
     activityId: string
 ): Promise<
     {
+        id: string;
         timestamp: string;
+        notes: string;
     }[]
 > => {
     const pool = await getCloudSqlConnection();
@@ -14,9 +16,9 @@ const getSummitsByPeakAndActivity = async (
     const connection = await pool.getConnection();
 
     const [rows] = await connection.query<
-        ({ timestamp: string } & RowDataPacket)[]
+        ({ id: string; timestamp: string; notes: string } & RowDataPacket)[]
     >(
-        `SELECT ap.\`timestamp\`
+        `SELECT ap.id, ap.\`timestamp\`, ap.notes
         FROM Activity a 
         LEFT JOIN (
             SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak

@@ -14,7 +14,12 @@ const getMostRecentSummitByPeak = async (
     peaks: (Peak & {
         isFavorited: boolean;
         isSummitted?: boolean;
-        ascents: { timestamp: string; activityId: string; timezone?: string }[];
+        ascents: {
+            id: string;
+            timestamp: string;
+            activityId: string;
+            timezone?: string;
+        }[];
     })[];
     activityCoords: {
         id: string;

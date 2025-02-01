@@ -27,12 +27,13 @@ const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
     const promises = rows.map(async (row): Promise<PeakSummit> => {
         const [ascents] = await connection.query<
             ({
+                id: string;
                 timestamp: string;
                 activityId: string;
             } & RowDataPacket)[]
         >(
             `
-            SELECT \`timestamp\`, activityId
+            SELECT ap.id, \`timestamp\`, activityId
             FROM (
                 SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
                 UNION

@@ -1,7 +1,6 @@
 import { RowDataPacket } from "mysql2/promise";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
-import mysql from "mysql2/promise";
 
 const getPeaks = async (page: number, perPage: number, search?: string) => {
     const pool = await getCloudSqlConnection();

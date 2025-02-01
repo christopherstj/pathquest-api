@@ -8,12 +8,13 @@ const getSummitsByPeak = async (peakId: string, userId: string) => {
 
     const [rows] = await connection.query<
         ({
-            timestamp: number;
+            id: string;
+            timestamp: string;
             activityId: string;
         } & RowDataPacket)[]
     >(
         `
-            SELECT \`timestamp\`, activityId
+            SELECT ap.id, ap.\`timestamp\`, ap.activityId, ap.notes
             FROM (
                 SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
                 UNION

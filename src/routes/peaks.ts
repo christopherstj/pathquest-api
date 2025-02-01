@@ -13,6 +13,13 @@ import getIsPeakFavorited from "../helpers/peaks/getIsPeakFavorited";
 import ManualPeakSummit from "../typeDefs/ManualPeakSummit";
 import addManualPeakSummit from "../helpers/peaks/addManualPeakSummit";
 import getRecentSummits from "../helpers/peaks/getRecentSummits";
+import searchNearestPeaks from "../helpers/peaks/searchNearestPeaks";
+import getAscentDetails from "../helpers/peaks/getAscentDetails";
+import PeakSummit from "../typeDefs/PeakSummit";
+import AscentDetail from "../typeDefs/AscentDetail";
+import updateAscent from "../helpers/peaks/updateAscent";
+import getAscentOwnerId from "../helpers/peaks/getAscentOwnerId";
+import deleteAscent from "../helpers/peaks/deleteAscent";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -31,6 +38,26 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     });
 
     fastify.get<{
+        Querystring: {
+            userId: string;
+            lat: string;
+            lng: string;
+            page?: string;
+            search?: string;
+        };
+    }>("/peaks/search/nearest", async (request, reply) => {
+        const userId = request.query.userId;
+        const lat = parseFloat(request.query.lat);
+        const lng = parseFloat(request.query.lng);
+        const search = request.query.search;
+        const page = request.query.page ? parseInt(request.query.page) : 1;
+
+        const peaks = await searchNearestPeaks(lat, lng, userId, page, search);
+
+        reply.code(200).send(peaks);
+    });
+
+    fastify.get<{
         Params: {
             id: string;
         };
@@ -44,7 +71,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         const peak = await getPeakById(peakId, userId);
 
         if (peak?.isSummitted) {
-            const activities = await getActivityByPeak(peakId, userId);
+            const activities = await getActivityByPeak(peakId, userId, true);
             const summits = await getSummitsByPeak(peakId, userId);
             reply.code(200).send({ peak, activities, summits });
         } else {
@@ -175,6 +202,87 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         const isFavorited = await getIsPeakFavorited(userId, peakId);
 
         reply.code(200).send({ isFavorited });
+    });
+
+    fastify.get<{
+        Querystring: {
+            userId: string;
+        };
+        Params: {
+            ascentId: string;
+        };
+    }>("/peaks/ascent/:ascentId", async function (request, reply) {
+        const userId = request.query.userId;
+        const ascentId = request.params.ascentId;
+
+        const ascent = await getAscentDetails(ascentId, userId);
+
+        if (!ascent) {
+            reply.code(404).send({ message: "Ascent not found" });
+            return;
+        }
+
+        const peak = await getPeakById(ascent.peakId, userId);
+
+        if (!peak) {
+            reply.code(404).send({ message: "Peak not found" });
+            return;
+        }
+
+        const otherAscents = await getSummitsByPeak(ascent.peakId, userId);
+
+        const peakSummit: PeakSummit = {
+            ...peak,
+            ascents: otherAscents,
+        };
+
+        reply.code(200).send({ ascent, peak: peakSummit });
+    });
+
+    fastify.put<{
+        Querystring: {
+            userId: string;
+        };
+        Body: {
+            ascent: AscentDetail;
+        };
+    }>("/peaks/ascent/:ascentId", async function (request, reply) {
+        const userId = request.query.userId;
+        const ascent = request.body.ascent;
+
+        const ownerId = await getAscentOwnerId(ascent.id);
+
+        if (!ownerId || ownerId.toString() !== userId.toString()) {
+            reply.code(403).send({ message: "Unauthorized" });
+            return;
+        }
+
+        await updateAscent(ascent);
+
+        reply.code(200).send();
+    });
+
+    fastify.delete<{
+        Querystring: {
+            userId: string;
+        };
+        Params: {
+            ascentId: string;
+        };
+    }>("/peaks/ascent/:ascentId", async function (request, reply) {
+        const userId = request.query.userId;
+        const ascentId = request.params.ascentId;
+
+        const ownerId = await getAscentOwnerId(ascentId);
+
+        if (!ownerId || ownerId.toString() !== userId.toString()) {
+            reply.code(403).send({ message: "Unauthorized" });
+            return;
+        }
+
+        await deleteAscent(ascentId);
+
+        reply.code(200).send();
     });
 
     done();

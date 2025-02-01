@@ -33,7 +33,7 @@ const searchNearestActivities = async (
             userId = ?
             AND startLat IS NOT NULL
             AND startLong IS NOT NULL
-            ${search ? `AND name LIKE '%' + ? + '%'` : ""}
+            ${search ? `AND name LIKE CONCAT('%', ?, '%')` : ""}
         ORDER BY
             distanceFromPeak ASC
         LIMIT

@@ -7,8 +7,6 @@ const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
 
     const connection = await pool.getConnection();
 
-    console.log(newEntry);
-
     await connection.execute<RowDataPacket[]>(
         `
         INSERT INTO UserPeakManual

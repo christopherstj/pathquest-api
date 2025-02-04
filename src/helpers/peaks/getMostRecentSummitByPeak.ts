@@ -37,18 +37,18 @@ const getMostRecentSummitByPeak = async (
             >(
                 format(
                     `
-                SELECT a.id
-                FROM (
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
-                    UNION
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-                    WHERE userId = ?
-                ) ap 
-                LEFT JOIN Activity a ON ap.activityId = a.id 
-                WHERE ap.peakId = ? AND a.userId = ?
-                ORDER BY a.startTime DESC 
-                LIMIT 1
-            `,
+                        SELECT a.id
+                        FROM (
+                            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                            UNION
+                            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                            WHERE userId = ?
+                        ) ap 
+                        LEFT JOIN Activity a ON ap.activityId = a.id 
+                        WHERE ap.peakId = ? AND a.userId = ?
+                        ORDER BY a.startTime DESC 
+                        LIMIT 1
+                    `,
                     [userId, p.Id, userId]
                 )
             );

@@ -7,7 +7,7 @@ const addEventToQueue = async (message: QueueMessage) => {
     const connection = await pool.getConnection();
 
     await connection.execute(
-        `INSERT INTO EventQueue (\`action\`, created, jsonData, isWebhook, userId) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO EventQueue (\`action\`, created, jsonData, isWebhook, userId, priority) VALUES (?, ?, ?, ?, ?, 1)`,
         [
             message.action,
             message.created,

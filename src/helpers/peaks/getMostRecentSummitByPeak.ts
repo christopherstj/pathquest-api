@@ -28,32 +28,48 @@ const getMostRecentSummitByPeak = async (
 }> => {
     const pool = await getCloudSqlConnection();
 
-    const connection = await pool.getConnection();
+    const ids = await Promise.all(
+        peaks.map(async (p) => {
+            const connection = await pool.getConnection();
 
-    const query = `
-        SELECT a.id
-        FROM (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
-            UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-        ) ap 
-        LEFT JOIN Activity a ON ap.activityId = a.id 
-        WHERE ap.peakId IN (${peaks
-            .map((p) => `'${p.Id}'`)
-            .join(", ")}) AND a.userId = ?
-        ORDER BY a.startTime DESC 
-    `;
+            const [rows] = await connection.query<
+                ({ id: string } & RowDataPacket)[]
+            >(
+                format(
+                    `
+                SELECT a.id
+                FROM (
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                    UNION
+                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    WHERE userId = ?
+                ) ap 
+                LEFT JOIN Activity a ON ap.activityId = a.id 
+                WHERE ap.peakId = ? AND a.userId = ?
+                ORDER BY a.startTime DESC 
+                LIMIT 1
+            `,
+                    [userId, p.Id, userId]
+                )
+            );
 
-    const [ids] = await connection.query<({ id: string } & RowDataPacket)[]>(
-        query,
-        [userId]
+            connection.release();
+
+            if (rows.length === 0) {
+                return null;
+            }
+
+            return rows[0].id;
+        })
     );
 
-    const distinctIds = ids
-        .map((id) => id.id)
-        .filter((id, index, self) => self.indexOf(id) === index);
+    const distinctIds = ids.filter(
+        (id, index, self) => id !== null && self.indexOf(id) === index
+    );
 
     if (distinctIds.length > 0) {
+        const connection = await pool.getConnection();
+
         const queryString = `SELECT id, coords FROM Activity WHERE id IN (${distinctIds
             .map((id) => `'${id}'`)
             .join(", ")})`;
@@ -85,7 +101,6 @@ const getMostRecentSummitByPeak = async (
             activityCoords: rows,
         };
     } else {
-        connection.release();
         return {
             peaks: peaks.map((p) => ({ ...p, ascents: [] })),
             activityCoords: [],

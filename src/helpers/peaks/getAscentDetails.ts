@@ -1,4 +1,4 @@
-import { RowDataPacket } from "mysql2";
+import { format, RowDataPacket } from "mysql2";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import AscentDetail from "../../typeDefs/AscentDetail";
 
@@ -23,7 +23,10 @@ const getAscentDetails = async (ascentId: string, userId: string) => {
         return null;
     }
 
-    return rows[0];
+    return rows.map((row) => ({
+        ...row,
+        isPublic: !!row.isPublic,
+    }))[0];
 };
 
 export default getAscentDetails;

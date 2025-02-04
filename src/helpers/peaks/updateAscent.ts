@@ -1,3 +1,4 @@
+import { format } from "mysql2";
 import AscentDetail from "../../typeDefs/AscentDetail";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
@@ -11,7 +12,7 @@ const updateAscent = async (ascent: AscentDetail) => {
         [
             ascent.timestamp.replace("T", " ").replace("Z", ""),
             ascent.notes,
-            ascent.isPublic,
+            ascent.isPublic ? 1 : 0,
             ascent.id,
         ]
     );
@@ -25,7 +26,7 @@ const updateAscent = async (ascent: AscentDetail) => {
         [
             ascent.timestamp.replace("T", " ").replace("Z", ""),
             ascent.notes,
-            ascent.isPublic,
+            ascent.isPublic ? 1 : 0,
             ascent.id,
         ]
     );

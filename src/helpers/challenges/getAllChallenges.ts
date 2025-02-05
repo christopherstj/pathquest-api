@@ -43,7 +43,7 @@ const getAllChallenges = async (
         if (type === "completed") {
             clauses.push("completed = total");
         } else if (type === "in-progress") {
-            clauses.push("completed < total");
+            clauses.push("completed < total AND completed > 0");
         } else if (type === "not-started") {
             clauses.push("completed = 0");
         }
@@ -59,12 +59,12 @@ const getAllChallenges = async (
         LEFT JOIN 
             (
                 SELECT ap.peakId, COUNT(ap.peakId) > 0 summitted FROM (
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                    SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+                    LEFT JOIN Activity a ON a.id = ap.activityId
                     UNION
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
                 ) ap
-                LEFT JOIN Activity a ON a.id = ap.activityId
-                WHERE a.userId = ?
+                WHERE ap.userId = ?
                 GROUP BY ap.peakId
             ) ap2 ON p.Id = ap2.peakId
         ${getWhereClause()}

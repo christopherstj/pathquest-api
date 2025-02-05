@@ -27,12 +27,13 @@ const getPeakById = async (
         FROM Peak p 
         LEFT JOIN (
             SELECT ap.id, ap.peakId FROM (
-                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+                LEFT JOIN Activity a ON a.id = ap.activityId
                 UNION
-                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
             ) ap
             LEFT JOIN Activity a ON ap.activityId = a.id
-            WHERE a.userId = ?
+            WHERE ap.userId = ?
         ) ap2 ON p.Id = ap2.peakId
         LEFT JOIN UserPeakFavorite upf
         ON p.id = upf.peakId

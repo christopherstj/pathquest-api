@@ -35,22 +35,19 @@ const getMostRecentSummitByPeak = async (
             const [rows] = await connection.query<
                 ({ id: string } & RowDataPacket)[]
             >(
-                format(
-                    `
-                        SELECT a.id
+                `
+                        SELECT ap.activityId id
                         FROM (
-                            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                            SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+                            LEFT JOIN Activity a ON a.id = ap.activityId
                             UNION
-                            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-                            WHERE userId = ?
+                            SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
                         ) ap 
-                        LEFT JOIN Activity a ON ap.activityId = a.id 
-                        WHERE ap.peakId = ? AND a.userId = ?
-                        ORDER BY a.startTime DESC 
+                        WHERE ap.peakId = ? AND ap.userId = ?
+                        ORDER BY ap.\`timestamp\` DESC 
                         LIMIT 1
                     `,
-                    [userId, p.Id, userId]
-                )
+                [p.Id, userId]
             );
 
             connection.release();

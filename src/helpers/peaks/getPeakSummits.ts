@@ -12,13 +12,13 @@ const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
         `
         SELECT p.*
         FROM (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+            LEFT JOIN Activity a ON a.id = ap.activityId
             UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
         ) ap 
         LEFT JOIN Peak p ON ap.peakId = p.Id 
-        LEFT JOIN Activity a ON ap.activityId = a.id 
-        WHERE a.userId = ?
+        WHERE ap.userId = ?
         GROUP BY p.\`Name\`, p.Id, p.Lat, p.\`Long\`;
     `,
         [userId]
@@ -35,13 +35,13 @@ const getPeakSummits = async (userId: string): Promise<PeakSummit[]> => {
             `
             SELECT ap.id, \`timestamp\`, activityId
             FROM (
-                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+                LEFT JOIN Activity a ON a.id = ap.activityId
                 UNION
-                SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
             ) ap
-            LEFT JOIN Activity a ON ap.activityId = a.id
             WHERE peakId = ?
-            AND a.userId = ?
+            AND ap.userId = ?
         `,
             [row.Id, userId]
         );

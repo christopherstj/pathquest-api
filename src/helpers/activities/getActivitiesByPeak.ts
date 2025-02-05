@@ -14,11 +14,7 @@ const getActivityByPeak = async (
     const [rows] = await connection.query<(Activity & RowDataPacket)[]>(
         `SELECT DISTINCT a.id, a.\`name\`, a.userId, a.startLat, a.startLong, a.distance, a.coords, a.startTime, a.sport, a.timezone, a.gain${
             !justCoords ? ", a.vertProfile, a.distanceStream, a.timeStream" : ""
-        } FROM (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
-            UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-        ) ap LEFT JOIN Activity a ON ap.activityId = a.id WHERE ap.peakId = ? AND a.userId = ?`,
+        } FROM ActivityPeak ap LEFT JOIN Activity a ON ap.activityId = a.id WHERE ap.peakId = ? AND a.userId = ?`,
         [peakId, userId]
     );
 

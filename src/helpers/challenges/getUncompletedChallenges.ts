@@ -24,12 +24,12 @@ const getUncompletedChallenges = async (
             ON pc.peakId = p.Id
             LEFT JOIN (
                 SELECT DISTINCT ap.peakId peakId FROM (
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+                    SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+                    LEFT JOIN Activity a ON a.id = ap.activityId
                     UNION
-                    SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
                 ) ap
-                LEFT JOIN Activity a ON ap.activityId = a.id
-                WHERE a.userId = ?
+                WHERE ap.userId = ?
             ) ap2 ON p.Id = ap2.peakId
             GROUP BY c.id 
             HAVING total > 0 AND completed < total

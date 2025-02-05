@@ -15,15 +15,15 @@ const getRecentPeakSummits = async (userId: string, peakId: string) => {
         } & RowDataPacket)[]
     >(
         `
-        SELECT ap.id, ap.\`timestamp\`, ap.activityId, a.\`timezone\`
+        SELECT ap.id, ap.\`timestamp\`, ap.activityId, ap.\`timezone\`
         FROM (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            SELECT a.timezone, a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
+            LEFT JOIN Activity a ON a.id = ap.activityId
             UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT timezone, userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
         ) ap
-        LEFT JOIN Activity a ON ap.activityId = a.id
         WHERE peakId = ?
-        AND a.userId = ?
+        AND ap.userId = ?
         ORDER BY ap.\`timestamp\` DESC
         LIMIT 3
     `,

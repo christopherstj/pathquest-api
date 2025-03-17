@@ -20,6 +20,7 @@ import AscentDetail from "../typeDefs/AscentDetail";
 import updateAscent from "../helpers/peaks/updateAscent";
 import getAscentOwnerId from "../helpers/peaks/getAscentOwnerId";
 import deleteAscent from "../helpers/peaks/deleteAscent";
+import getWeather from "../helpers/peaks/getWeather";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -35,6 +36,16 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
 
         const peaks = await getPeaks(page, perPage, search);
         reply.code(200).send(peaks);
+    });
+
+    fastify.get<{
+        Params: {
+            peakId: string;
+        };
+    }>("/peaks/:peakId/weather", async function (request, reply) {
+        const peakId = request.params.peakId;
+        const data = await getWeather(peakId);
+        reply.code(200).send(data);
     });
 
     fastify.get<{

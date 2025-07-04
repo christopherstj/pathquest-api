@@ -16,7 +16,8 @@ const getAllChallenges = async (
             lng: number;
         };
     },
-    search?: string
+    search?: string,
+    favoritesOnly: boolean = false
 ) => {
     const pool = await getCloudSqlConnection();
 
@@ -54,6 +55,11 @@ const getAllChallenges = async (
     const query = `
         SELECT c.id, c.\`name\`, c.centerLat, c.centerLong, c.region, COUNT(p.Id) total, COUNT(ap2.summitted) completed 
         FROM Challenge c 
+        ${
+            favoritesOnly
+                ? "LEFT JOIN UserChallengeFavorite ucf ON c.id = ucf.challengeId"
+                : ""
+        }
         LEFT JOIN PeakChallenge pc ON pc.challengeId = c.id 
         LEFT JOIN Peak p ON pc.peakId = p.Id
         LEFT JOIN 

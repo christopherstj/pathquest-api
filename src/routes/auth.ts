@@ -40,9 +40,9 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
 
         console.log("Creating user", id, name, email);
 
-        await createUser({ id, name, email });
+        const newUser = await createUser({ id, name, email });
 
-        return { id, name, email, pic };
+        reply.code(200).send({ user: newUser });
     });
 
     fastify.post<{

@@ -5,6 +5,12 @@ import getChallengeById from "../helpers/challenges/getChallengeById";
 import getPeaksByChallenge from "../helpers/challenges/getPeaksByChallenge";
 import getMostRecentSummitByPeak from "../helpers/peaks/getMostRecentSummitByPeak";
 import getAllChallenges from "../helpers/challenges/getAllChallenges";
+import UserChallengeFavorite from "../typeDefs/UserChallengeFavorite";
+import getUserPrivacy from "../helpers/user/getUserPrivacy";
+import addChallengeFavorite from "../helpers/challenges/addChallengeFavorite";
+import deleteChallengeFavorite from "../helpers/challenges/deleteChallengeFavorite";
+import updateChallengePrivacy from "../helpers/challenges/updateChallengePrivacy";
+import getChallengeByUserAndId from "../helpers/challenges/getChallengeByUserAndId";
 
 const challenges = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -45,7 +51,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
         const challengeId = parseInt(request.params.challengeId);
         const userId = request.query.userId;
 
-        const challenge = await getChallengeById(challengeId);
+        const challenge = await getChallengeByUserAndId(challengeId, userId);
 
         const peaks = await getPeaksByChallenge(challengeId, userId);
 
@@ -57,7 +63,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
                 ...data,
             });
         } else {
-            reply.code(200).send([]);
+            reply.code(200).send();
         }
     });
 
@@ -70,6 +76,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             southEastLat?: string;
             southEastLng?: string;
             search?: string;
+            favoritesOnly?: string;
         };
     }>("/challenges/search", async function (request, reply) {
         const {
@@ -80,6 +87,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             southEastLat,
             southEastLng,
             search,
+            favoritesOnly,
         } = request.query;
 
         const bounds =
@@ -100,9 +108,63 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             userId,
             type as "completed" | "in-progress" | "not-started",
             bounds,
-            search
+            search,
+            !!favoritesOnly && favoritesOnly === "true"
         );
         reply.code(200).send(challenges);
+    });
+
+    fastify.post<{
+        Body: {
+            userId: string;
+            challengeId: string;
+        };
+    }>("/challenges/favorite", async (request, reply) => {
+        const { userId, challengeId } = request.body;
+
+        const privacy = await getUserPrivacy(userId);
+
+        if (privacy === null) {
+            reply.code(400).send({
+                message: "User not found",
+            });
+            return;
+        }
+
+        await addChallengeFavorite({
+            userId,
+            challengeId,
+            isPublic: privacy,
+        });
+
+        reply.code(200).send();
+    });
+
+    fastify.put<{
+        Body: UserChallengeFavorite;
+    }>("/challenges/favorite", async (request, reply) => {
+        const { userId, challengeId, isPublic } = request.body;
+
+        console.log(
+            `Updating favorite for user ${userId} and challenge ${challengeId} to public: ${isPublic}`
+        );
+
+        await updateChallengePrivacy(userId, challengeId, isPublic);
+
+        reply.code(200).send();
+    });
+
+    fastify.delete<{
+        Params: {
+            userId: string;
+            challengeId: string;
+        };
+    }>("/challenges/favorite/:userId/:challengeId", async (request, reply) => {
+        const { userId, challengeId } = request.params;
+
+        await deleteChallengeFavorite(userId, challengeId);
+
+        reply.code(200).send();
     });
 
     done();

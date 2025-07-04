@@ -1,5 +1,4 @@
 import { RowDataPacket } from "mysql2";
-import { StravaCreds } from "../../typeDefs/StravaCreds";
 import User from "../../typeDefs/User";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import getStravaAccessToken from "../getStravaAccessToken";
@@ -15,7 +14,7 @@ const createUser = async ({
     id: string;
     name: string;
     email: string | null;
-}) => {
+}): Promise<User | null> => {
     const token = await getStravaAccessToken(id);
 
     const pool = await getCloudSqlConnection();
@@ -29,7 +28,7 @@ const createUser = async ({
 
     if (user.length > 0) {
         connection.release();
-        return;
+        return null;
     }
 
     const stravaRes = await fetch("https://www.strava.com/api/v3/athlete", {
@@ -92,6 +91,26 @@ const createUser = async ({
                 units,
             ]
         );
+
+        connection.release();
+
+        const newUser: User = {
+            id,
+            name,
+            email: email ?? undefined,
+            pic: profile_medium ?? null,
+            city,
+            state,
+            country,
+            lat,
+            long: lng,
+            units,
+            updateDescription: true,
+            isSubscribed: false,
+            isLifetimeFree: false,
+        };
+
+        return newUser;
     } else {
         await connection.execute(
             `INSERT INTO User (id, name, email, pic, units)
@@ -114,9 +133,22 @@ const createUser = async ({
                 units,
             ]
         );
-    }
 
-    connection.release();
+        connection.release();
+
+        const newUser: User = {
+            id,
+            name,
+            email: email ?? undefined,
+            pic: profile_medium ?? null,
+            updateDescription: true,
+            units,
+            isSubscribed: false,
+            isLifetimeFree: false,
+        };
+
+        return newUser;
+    }
 };
 
 export default createUser;

@@ -13,11 +13,13 @@ const activites = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
         Querystring: {
             userId: string;
+            summitsOnly?: string;
         };
     }>("/activities/recent", async function (request, reply) {
         const userId = request.query.userId;
+        const summitsOnly = request.query.summitsOnly === "true";
 
-        const activities = await getMostRecentActivities(userId);
+        const activities = await getMostRecentActivities(userId, summitsOnly);
 
         reply.code(200).send(activities);
     });

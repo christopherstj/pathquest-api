@@ -1,8 +1,11 @@
-import { RowDataPacket } from "mysql2";
+import { RowDataPacket, format } from "mysql2";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
-const getMostRecentActivities = async (userId: string) => {
+const getMostRecentActivities = async (
+    userId: string,
+    summitsOnly: boolean
+) => {
     const pool = await getCloudSqlConnection();
 
     const connection = await pool.getConnection();
@@ -30,8 +33,9 @@ const getMostRecentActivities = async (userId: string) => {
         ON a.id = ap.activityId
         WHERE userId = ?
         GROUP BY a.id
+        ${summitsOnly ? "HAVING peakSummits > 0" : ""}
         ORDER BY a.startTime DESC
-        LIMIT 10;
+        LIMIT 20;
         `,
         [userId]
     );

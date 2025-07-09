@@ -5,7 +5,7 @@ import ChallengeProgress from "../../typeDefs/ChallengeProgress";
 
 const getAllChallenges = async (
     userId: string,
-    type: "completed" | "in-progress" | "not-started",
+    types: ("completed" | "in-progress" | "not-started")[],
     bounds?: {
         northWest: {
             lat: number;
@@ -35,21 +35,27 @@ const getAllChallenges = async (
             );
         }
 
+        if (favoritesOnly) {
+            clauses.push("ucf.userId = ?");
+        }
+
         return clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     };
 
     const getHavingClauses = () => {
         const clauses = [] as string[];
 
-        if (type === "completed") {
+        if (types.includes("completed")) {
             clauses.push("completed = total");
-        } else if (type === "in-progress") {
+        }
+        if (types.includes("in-progress")) {
             clauses.push("completed < total AND completed > 0");
-        } else if (type === "not-started") {
+        }
+        if (types.includes("not-started")) {
             clauses.push("completed = 0");
         }
 
-        return clauses.length > 0 ? `HAVING ${clauses.join(" AND ")}` : "";
+        return clauses.length > 0 ? `HAVING ${clauses.join(" OR ")}` : "";
     };
 
     const query = `
@@ -91,6 +97,7 @@ const getAllChallenges = async (
                   Math.max(bounds.northWest.lng, bounds.southEast.lng),
               ]
             : []),
+        ...(favoritesOnly ? [userId] : []),
     ]);
 
     connection.release();

@@ -104,9 +104,15 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
                   }
                 : undefined;
 
+        const types = type.split(",") as (
+            | "completed"
+            | "in-progress"
+            | "not-started"
+        )[];
+
         const challenges = await getAllChallenges(
             userId,
-            type as "completed" | "in-progress" | "not-started",
+            types,
             bounds,
             search,
             !!favoritesOnly && favoritesOnly === "true"

@@ -1,13 +1,9 @@
 import { RowDataPacket } from "mysql2";
 import ManualPeakSummit from "../../typeDefs/ManualPeakSummit";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    await connection.execute<RowDataPacket[]>(
+    await db.execute<RowDataPacket[]>(
         `
         INSERT INTO UserPeakManual
         (\`id\`,
@@ -32,9 +28,6 @@ const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
             newEntry.timezone,
         ]
     );
-
-    connection.release();
-
     return newEntry;
 };
 

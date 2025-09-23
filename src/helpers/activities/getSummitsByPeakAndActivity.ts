@@ -1,5 +1,5 @@
 import { RowDataPacket } from "mysql2/promise";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getSummitsByPeakAndActivity = async (
     peakId: string,
@@ -11,11 +11,7 @@ const getSummitsByPeakAndActivity = async (
         notes: string;
     }[]
 > => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         ({ id: string; timestamp: string; notes: string } & RowDataPacket)[]
     >(
         `SELECT ap.id, ap.\`timestamp\`, ap.notes
@@ -29,8 +25,6 @@ const getSummitsByPeakAndActivity = async (
         WHERE a.id = ? AND p.Id = ?`,
         [activityId, peakId]
     );
-
-    connection.release();
 
     return rows;
 };

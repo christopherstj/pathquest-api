@@ -1,12 +1,8 @@
 import { RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const checkUserHistoricalData = async (userId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         ({
             historicalDataProcessed: boolean;
         } & RowDataPacket)[]
@@ -17,8 +13,6 @@ const checkUserHistoricalData = async (userId: string) => {
     );
 
     const user = rows[0];
-
-    connection.release();
 
     if (!user) {
         return null;

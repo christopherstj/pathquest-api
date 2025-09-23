@@ -1,7 +1,7 @@
 import StravaTokenResponse from "../typeDefs/StravaTokenResponse";
 import { ResultSetHeader } from "mysql2/promise";
-import saveStravaCreds from "./saveStravaCreds";
-import getCloudSqlConnection from "./getCloudSqlConnection";
+import updateStravaCreds from "./updateStravaCreds";
+import db from "./getCloudSqlConnection";
 import { StravaCredsDb } from "../typeDefs/StravaCredsDb";
 
 const clientId = process.env.STRAVA_CLIENT_ID ?? "";
@@ -22,35 +22,28 @@ const getNewToken = async (refreshToken: string, userId: string) => {
 
     const data: StravaTokenResponse = await response.json();
 
-    await saveStravaCreds({
+    await updateStravaCreds({
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
-        accessTokenExpiresAt: data.expires_at,
-        userId,
+        expiresAt: data.expires_at,
+        providerAccountId: userId,
     });
 
     return data.access_token;
 };
 
 const getStravaAccessToken = async (userId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.execute<
-        (StravaCredsDb & ResultSetHeader)[]
-    >(`SELECT * FROM StravaToken WHERE userId = ${userId} LIMIT 1`);
+    const [rows] = await db.execute<(StravaCredsDb & ResultSetHeader)[]>(
+        `SELECT * FROM StravaToken WHERE userId = ${userId} LIMIT 1`
+    );
 
     if (rows.length === 0) {
-        connection.release();
         console.error("No strava creds found for user", userId);
         return null;
     } else {
         const creds = rows[0];
 
         const { accessToken, refreshToken, accessTokenExpiresAt } = creds;
-
-        connection.release();
 
         if (!refreshToken || refreshToken === "") {
             return null;

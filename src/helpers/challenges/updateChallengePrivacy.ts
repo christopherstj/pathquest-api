@@ -1,27 +1,17 @@
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const updateChallengePrivacy = async (
     userId: string,
     challengeId: string,
     isPublic: boolean
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const query = `
         UPDATE UserChallengeFavorite
         SET isPublic = ?
         WHERE userId = ? AND challengeId = ?
     `;
 
-    const [result] = await connection.query(query, [
-        isPublic,
-        userId,
-        challengeId,
-    ]);
-
-    connection.release();
+    const [result] = await db.query(query, [isPublic, userId, challengeId]);
 
     return result;
 };

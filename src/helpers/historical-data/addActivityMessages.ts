@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import ListActivity from "../../typeDefs/ListActivity";
 import QueueMessage from "../../typeDefs/QueueMessage";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import StravaEvent from "../../typeDefs/StravaEvent";
 import mysql from "mysql2/promise";
 
@@ -11,11 +11,7 @@ const addActivityMessages = async (
     activities: ListActivity[],
     userId: string
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    await connection.query(
+    await db.query(
         `INSERT INTO EventQueue (userId, \`action\`, created, jsonData, isWebhook) VALUES ?`,
         [
             activities.map((activity) => {
@@ -44,8 +40,6 @@ const addActivityMessages = async (
             }),
         ]
     );
-
-    connection.release();
 };
 
 export default addActivityMessages;

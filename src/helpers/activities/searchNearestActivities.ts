@@ -1,5 +1,5 @@
 import { RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const searchNearestActivities = async (
@@ -9,10 +9,6 @@ const searchNearestActivities = async (
     page: number,
     search?: string
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const rowsPerPage = 50;
     const offset = (page - 1) * rowsPerPage;
 
@@ -45,12 +41,7 @@ const searchNearestActivities = async (
         ? [Math.abs(lat ?? 0), Math.abs(lng ?? 0), userId, search]
         : [Math.abs(lat ?? 0), Math.abs(lng ?? 0), userId];
 
-    const [rows] = await connection.query<(Activity & RowDataPacket)[]>(
-        query,
-        params
-    );
-
-    connection.release();
+    const [rows] = await db.query<(Activity & RowDataPacket)[]>(query, params);
 
     return rows;
 };

@@ -1,13 +1,9 @@
 import { RowDataPacket } from "mysql2/promise";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
 
 const getPeaksByActivity = async (activityId: string): Promise<Peak[]> => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<(Peak & RowDataPacket)[]>(
+    const [rows] = await db.query<(Peak & RowDataPacket)[]>(
         `SELECT DISTINCT p.*
         FROM Activity a 
         LEFT JOIN (
@@ -21,8 +17,6 @@ const getPeaksByActivity = async (activityId: string): Promise<Peak[]> => {
         WHERE a.id = ?`,
         [activityId, activityId, activityId]
     );
-
-    connection.release();
 
     return rows.filter((row) => row.Id !== null);
 };

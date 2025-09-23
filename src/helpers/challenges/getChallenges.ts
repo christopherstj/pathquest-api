@@ -1,5 +1,5 @@
 import { RowDataPacket } from "mysql2/promise";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Challenge from "../../typeDefs/Challenge";
 
 const getChallenges = async (
@@ -7,14 +7,10 @@ const getChallenges = async (
     perPage: number,
     search?: string
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const skip = (page - 1) * perPage;
 
     if (search) {
-        const [rows] = await connection.query<(Challenge & RowDataPacket)[]>(
+        const [rows] = await db.query<(Challenge & RowDataPacket)[]>(
             `SELECT c.*, COUNT(pc.peakId) numPeaks FROM Challenge c LEFT JOIN PeakChallenge pc ON c.id = pc.challengeId
             WHERE LOWER(\`name\`) LIKE CONCAT('%', ?, '%') 
             GROUP BY c.id
@@ -22,18 +18,14 @@ const getChallenges = async (
             [search.toLocaleLowerCase(), perPage, skip]
         );
 
-        connection.release();
-
         return rows;
     } else {
-        const [rows] = await connection.query<(Challenge & RowDataPacket)[]>(
+        const [rows] = await db.query<(Challenge & RowDataPacket)[]>(
             `SELECT c.*, COUNT(pc.peakId) numPeaks FROM Challenge c LEFT JOIN PeakChallenge pc ON c.id = pc.challengeId
             GROUP BY c.id
             ORDER BY \`name\` ASC LIMIT ? OFFSET ?`,
             [perPage, skip]
         );
-
-        connection.release();
 
         return rows;
     }

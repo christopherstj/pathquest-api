@@ -1,6 +1,6 @@
 import { RowDataPacket } from "mysql2";
 import Peak from "../../typeDefs/Peak";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getPeakById = async (
     peakId: string,
@@ -12,11 +12,7 @@ const getPeakById = async (
       })
     | undefined
 > => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         (Peak & {
             isFavorited: boolean;
             isSummitted?: boolean;
@@ -44,8 +40,6 @@ const getPeakById = async (
     );
 
     const peak = rows[0] || undefined;
-
-    connection.release();
 
     return peak;
 };

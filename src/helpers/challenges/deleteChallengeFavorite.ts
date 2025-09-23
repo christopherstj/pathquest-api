@@ -1,18 +1,12 @@
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const deleteChallengeFavorite = async (userId: string, challengeId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const query = `
         DELETE FROM UserChallengeFavorite
         WHERE userId = ? AND challengeId = ?
     `;
 
-    const [result] = await connection.query(query, [userId, challengeId]);
-
-    connection.release();
+    const [result] = await db.query(query, [userId, challengeId]);
 
     return result;
 };

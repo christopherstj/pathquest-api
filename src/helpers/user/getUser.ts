@@ -1,33 +1,35 @@
 import { RowDataPacket } from "mysql2/promise";
 import User from "../../typeDefs/User";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getUser = async (userId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<(User & RowDataPacket)[]>(
-        `SELECT id, 
-        \`name\`, 
-        email,
-        pic,
-        updateDescription = 1 updateDescription,
-        city,
-        state,
-        country,
-        lat,
-        \`long\`,
-        units,
-        isSubscribed = 1 isSubscribed,
-        isLifetimeFree = 1 isLifetimeFree
-        FROM User WHERE id = ? LIMIT 1`,
-        [userId]
+    const [rows] = await db.query<(User & RowDataPacket)[]>(
+        `SELECT u.id, 
+        u.\`name\`, 
+        u.email,
+        u.pic,
+        u.updateDescription = 1 updateDescription,
+        u.city,
+        u.state,
+        u.country,
+        u.lat,
+        u.\`long\`,
+        u.units,
+        u.isSubscribed = 1 isSubscribed,
+        u.isLifetimeFree = 1 isLifetimeFree,
+        u.historicalDataProcessed = 1 historicalDataProcessed,
+        COUNT(eq.id) as processingActivityCount
+        FROM \`User\` u
+        LEFT JOIN (
+            SELECT id, userId FROM EventQueue WHERE userId = ? AND completed IS NULL AND attempts < 5
+        ) eq ON eq.userId = u.id
+        WHERE u.id = ?
+        GROUP BY u.id
+        LIMIT 1;`,
+        [userId, userId]
     );
 
     const user = rows[0];
-
-    connection.release();
 
     return user;
 };

@@ -1,6 +1,6 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import Peak from "../../typeDefs/Peak";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getUnclimbedPeaks = async (
     userId: string,
@@ -8,10 +8,6 @@ const getUnclimbedPeaks = async (
     search?: string,
     showSummittedPeaks?: boolean
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     if (!bounds && !search) {
         return [];
     }
@@ -55,7 +51,7 @@ const getUnclimbedPeaks = async (
             ORDER BY p.Altitude DESC;
         `;
 
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         (Peak & {
             isFavorited: boolean;
             isSummitted?: boolean;
@@ -72,8 +68,6 @@ const getUnclimbedPeaks = async (
               ]
             : []),
     ]);
-
-    connection.release();
 
     return rows;
 };

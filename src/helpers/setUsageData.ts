@@ -1,5 +1,5 @@
 import StravaRateLimit from "../typeDefs/StravaRateLimit";
-import getCloudSqlConnection from "./getCloudSqlConnection";
+import db from "./getCloudSqlConnection";
 
 const setUsageData = async (headers: Headers) => {
     const limitHeader = headers.get("X-ReadRateLimit-Limit");
@@ -12,16 +12,10 @@ const setUsageData = async (headers: Headers) => {
     const [shortTermLimit, dailyLimit] = limitHeader.split(",");
     const [shortTermUsage, dailyUsage] = usageHeader.split(",");
 
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    await connection.execute(
+    await db.execute(
         `UPDATE StravaRateLimit SET shortTermLimit = ?, dailyLimit = ?, shortTermUsage = ?, dailyUsage = ?`,
         [shortTermLimit, dailyLimit, shortTermUsage, dailyUsage]
     );
-
-    connection.release();
 };
 
 export default setUsageData;

@@ -1,10 +1,10 @@
 import { FastifyInstance } from "fastify";
-import getActivityByPeak from "../helpers/activities/getActivitiesByPeak";
 import { StravaCreds } from "../typeDefs/StravaCreds";
-import updateStravaCreds from "../helpers/strava-creds/updateStravaCreds";
+import updateStravaCreds from "../helpers/updateStravaCreds";
 import getUser from "../helpers/user/getUser";
-import createUser from "../helpers/user/createUser";
+import addUserData from "../helpers/user/addUserData";
 import addUserInterest from "../helpers/user/addUserInterest";
+import createUser from "../helpers/user/createUser";
 
 const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -17,30 +17,30 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
         Body: {
             id: string;
-        };
-    }>("/user", async (request, reply) => {
-        const user = await getUser(request.body.id);
-
-        if (!user) {
-            reply.code(200).send({ userFound: false });
-        } else {
-            reply.code(200).send({ userFound: true, user });
-        }
-    });
-
-    fastify.post<{
-        Body: {
-            id: string;
             name: string;
             email: string | null;
             pic: string | null;
+            stravaCreds: {
+                accessToken: string;
+                refreshToken: string;
+                providerAccountId: string;
+                expiresAt: number;
+            };
         };
     }>("/signup", async (request, reply) => {
-        const { id, name, email, pic } = request.body;
+        const { id, name, email, pic, stravaCreds } = request.body;
 
         console.log("Creating user", id, name, email);
 
-        const newUser = await createUser({ id, name, email });
+        await createUser({ id, name, email });
+        await updateStravaCreds(stravaCreds);
+
+        const newUser = await addUserData({
+            id,
+            name,
+            email,
+            token: stravaCreds.accessToken,
+        });
 
         reply.code(200).send({ user: newUser });
     });

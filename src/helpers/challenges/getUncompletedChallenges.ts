@@ -1,17 +1,11 @@
 import { RowDataPacket } from "mysql2";
 import ChallengeProgress from "../../typeDefs/ChallengeProgress";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getUncompletedChallenges = async (
     userId: string
 ): Promise<ChallengeProgress[]> => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
-        (ChallengeProgress & RowDataPacket)[]
-    >(
+    const [rows] = await db.query<(ChallengeProgress & RowDataPacket)[]>(
         `
             SELECT 
             c.*, 
@@ -37,8 +31,6 @@ const getUncompletedChallenges = async (
         `,
         [userId]
     );
-
-    connection.release();
 
     return rows;
 };

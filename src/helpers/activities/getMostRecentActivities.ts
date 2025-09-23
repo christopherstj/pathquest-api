@@ -1,16 +1,12 @@
 import { RowDataPacket, format } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const getMostRecentActivities = async (
     userId: string,
     summitsOnly: boolean
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         (Activity & { peakSummits: number } & RowDataPacket)[]
     >(
         `
@@ -39,8 +35,6 @@ const getMostRecentActivities = async (
         `,
         [userId]
     );
-
-    connection.release();
 
     return rows;
 };

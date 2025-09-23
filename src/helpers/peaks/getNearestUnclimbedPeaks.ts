@@ -1,13 +1,9 @@
 import { RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import getUser from "../user/getUser";
 import Peak from "../../typeDefs/Peak";
 
 const getNearestUnclimbedPeaks = async (userId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const user = await getUser(userId);
 
     if (!user) {
@@ -15,7 +11,7 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
     }
 
     if (user.lat !== null && user.long !== null) {
-        const [rows] = await connection.query<
+        const [rows] = await db.query<
             (Peak & {
                 distance: number;
                 isFavorited: boolean;
@@ -40,12 +36,9 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
         `,
             [Math.abs(user.lat ?? 0), Math.abs(user.long ?? 0), userId]
         );
-
-        connection.release();
-
         return rows;
     } else {
-        const [rows] = await connection.query<
+        const [rows] = await db.query<
             (Peak & {
                 distance: number;
                 isFavorited: boolean;
@@ -66,9 +59,6 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
         `,
             [userId]
         );
-
-        connection.release();
-
         return rows;
     }
 };

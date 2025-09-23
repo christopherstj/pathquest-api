@@ -1,20 +1,15 @@
 import { RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getUserPrivacy = async (userId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const query = `
         SELECT isPublic FROM \`User\` WHERE id = ?
     `;
 
-    const [rows] = await connection.query<
-        ({ isPublic: boolean } & RowDataPacket)[]
-    >(query, [userId]);
-
-    connection.release();
+    const [rows] = await db.query<({ isPublic: boolean } & RowDataPacket)[]>(
+        query,
+        [userId]
+    );
 
     if (rows.length === 0) {
         return null;

@@ -1,18 +1,12 @@
 import { RowDataPacket } from "mysql2";
 import ManualPeakSummit from "../../typeDefs/ManualPeakSummit";
 import Peak from "../../typeDefs/Peak";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getRecentSummits = async (
     userId: string
 ): Promise<(Peak & ManualPeakSummit)[]> => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [rows] = await connection.query<
-        (Peak & ManualPeakSummit & RowDataPacket)[]
-    >(
+    const [rows] = await db.query<(Peak & ManualPeakSummit & RowDataPacket)[]>(
         `
         SELECT ap.*, p.* FROM (
             SELECT a1.userId, ap1.id, ap1.\`timestamp\`, ap1.activityId, ap1.peakId, ap1.notes, ap1.isPublic FROM ActivityPeak ap1
@@ -27,8 +21,6 @@ const getRecentSummits = async (
     `,
         [userId]
     );
-
-    connection.release();
 
     return rows;
 };

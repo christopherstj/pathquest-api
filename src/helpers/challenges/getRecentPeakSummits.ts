@@ -1,12 +1,8 @@
 import { RowDataPacket } from "mysql2/promise";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const getRecentPeakSummits = async (userId: string, peakId: string) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
-    const [ascents] = await connection.query<
+    const [ascents] = await db.query<
         ({
             id: string;
             timestamp: string;
@@ -29,8 +25,6 @@ const getRecentPeakSummits = async (userId: string, peakId: string) => {
     `,
         [peakId, userId]
     );
-
-    connection.release();
 
     return ascents;
 };

@@ -1,5 +1,5 @@
 import { format, RowDataPacket } from "mysql2/promise";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
 
 const searchNearestPeaks = async (
@@ -9,10 +9,6 @@ const searchNearestPeaks = async (
     page: number,
     search?: string
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const rowsPerPage = 50;
     const offset = (page - 1) * rowsPerPage;
 
@@ -52,14 +48,12 @@ const searchNearestPeaks = async (
 
     console.log(format(query, params));
 
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         (Peak & {
             isFavorited: boolean;
             isSummitted?: boolean;
         } & RowDataPacket)[]
     >(query, params);
-
-    connection.release();
 
     return rows;
 };

@@ -3,7 +3,6 @@ import getPeaks from "../helpers/peaks/getPeaks";
 import getPeakById from "../helpers/peaks/getPeakById";
 import getActivityByPeak from "../helpers/activities/getActivitiesByPeak";
 import getSummitsByPeak from "../helpers/peaks/getSummitsByPeak";
-import getPeakSummits from "../helpers/peaks/getPeakSummits";
 import getNearestUnclimbedPeaks from "../helpers/peaks/getNearestUnclimbedPeaks";
 import getUnclimbedPeaks from "../helpers/peaks/getUnclimbedPeaks";
 import getFavoritePeaks from "../helpers/peaks/getFavoritePeaks";
@@ -20,6 +19,7 @@ import AscentDetail from "../typeDefs/AscentDetail";
 import updateAscent from "../helpers/peaks/updateAscent";
 import getAscentOwnerId from "../helpers/peaks/getAscentOwnerId";
 import deleteAscent from "../helpers/peaks/deleteAscent";
+import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -79,13 +79,18 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
     });
 
-    fastify.post<{
-        Body: {
+    fastify.get<{
+        Params: {
             userId: string;
         };
-    }>("/peaks/summits", async function (request, reply) {
-        const userId = request.body.userId;
-        const peaks = await getPeakSummits(userId);
+        Querystring: {
+            requestingUserId?: string;
+        };
+    }>("/peaks/summits/:userId", async function (request, reply) {
+        const userId = request.params.userId;
+        const includePrivate = request.query.requestingUserId === userId;
+
+        const peaks = await getPeakSummitsByUser(userId, includePrivate);
         reply.code(200).send(peaks);
     });
 

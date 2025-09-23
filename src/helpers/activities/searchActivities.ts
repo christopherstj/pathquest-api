@@ -1,6 +1,6 @@
 import { RowDataPacket } from "mysql2/promise";
 import Activity from "../../typeDefs/Activity";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 
 const searchActivities = async (
     userId: string,
@@ -20,10 +20,6 @@ const searchActivities = async (
         throw new Error("Search query must be at least 3 characters long");
     }
 
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const clauses: string[] = ["userId = ?"];
     if (bounds) {
         clauses.push(`startLong BETWEEN ? AND ?`, `startLat BETWEEN ? AND ?`);
@@ -39,7 +35,7 @@ const searchActivities = async (
 
     const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
-    const [rows] = await connection.query<
+    const [rows] = await db.query<
         (Omit<Activity, "coords"> & { peakSummits: number } & RowDataPacket)[]
     >(
         `
@@ -67,8 +63,6 @@ const searchActivities = async (
             ...(search ? [`%${search}%`] : []),
         ]
     );
-
-    connection.release();
 
     return rows;
 };

@@ -1,7 +1,7 @@
 import { RowDataPacket, format } from "mysql2";
 import Activity from "../../typeDefs/Activity";
 import Peak from "../../typeDefs/Peak";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import getRecentPeakSummits from "../challenges/getRecentPeakSummits";
 
 const getMostRecentSummitByPeak = async (
@@ -26,11 +26,9 @@ const getMostRecentSummitByPeak = async (
         coords: Activity["coords"];
     }[];
 }> => {
-    const pool = await getCloudSqlConnection();
-
     const ids = await Promise.all(
         peaks.map(async (p) => {
-            const connection = await pool.getConnection();
+            const connection = await db.getConnection();
 
             const [rows] = await connection.query<
                 ({ id: string } & RowDataPacket)[]
@@ -65,17 +63,13 @@ const getMostRecentSummitByPeak = async (
     );
 
     if (distinctIds.length > 0) {
-        const connection = await pool.getConnection();
-
         const queryString = `SELECT id, coords FROM Activity WHERE id IN (${distinctIds
             .map((id) => `'${id}'`)
             .join(", ")})`;
 
-        const [rows] = await connection.query<
+        const [rows] = await db.query<
             ({ coords: Activity["coords"]; id: string } & RowDataPacket)[]
         >(queryString);
-
-        connection.release();
 
         const peaksPromises = peaks.map(async (peak) => {
             if (!peak.isSummitted)

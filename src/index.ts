@@ -8,6 +8,7 @@ import challenges from "./routes/challenges";
 import activites from "./routes/activites";
 import auth from "./routes/auth";
 import billing from "./routes/billing";
+import user from "./routes/user";
 
 const fastify = Fastify({
     logger: true,
@@ -36,6 +37,7 @@ fastify.get<{
 });
 
 fastify.register(auth);
+fastify.register(user);
 fastify.register(billing);
 fastify.register(historicalData);
 fastify.register(peaks);

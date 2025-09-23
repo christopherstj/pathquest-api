@@ -1,5 +1,5 @@
 import { format, RowDataPacket } from "mysql2";
-import getCloudSqlConnection from "../getCloudSqlConnection";
+import db from "../getCloudSqlConnection";
 import Challenge from "../../typeDefs/Challenge";
 import ChallengeProgress from "../../typeDefs/ChallengeProgress";
 
@@ -19,10 +19,6 @@ const getAllChallenges = async (
     search?: string,
     favoritesOnly: boolean = false
 ) => {
-    const pool = await getCloudSqlConnection();
-
-    const connection = await pool.getConnection();
-
     const getWhereClause = () => {
         const clauses = [] as string[];
 
@@ -84,23 +80,22 @@ const getAllChallenges = async (
         ${getHavingClauses()};
     `;
 
-    const [rows] = await connection.query<
-        (ChallengeProgress & RowDataPacket)[]
-    >(query, [
-        userId,
-        ...(search ? [`%${search}%`] : []),
-        ...(bounds
-            ? [
-                  Math.min(bounds.northWest.lat, bounds.southEast.lat),
-                  Math.max(bounds.northWest.lat, bounds.southEast.lat),
-                  Math.min(bounds.northWest.lng, bounds.southEast.lng),
-                  Math.max(bounds.northWest.lng, bounds.southEast.lng),
-              ]
-            : []),
-        ...(favoritesOnly ? [userId] : []),
-    ]);
-
-    connection.release();
+    const [rows] = await db.query<(ChallengeProgress & RowDataPacket)[]>(
+        query,
+        [
+            userId,
+            ...(search ? [`%${search}%`] : []),
+            ...(bounds
+                ? [
+                      Math.min(bounds.northWest.lat, bounds.southEast.lat),
+                      Math.max(bounds.northWest.lat, bounds.southEast.lat),
+                      Math.min(bounds.northWest.lng, bounds.southEast.lng),
+                      Math.max(bounds.northWest.lng, bounds.southEast.lng),
+                  ]
+                : []),
+            ...(favoritesOnly ? [userId] : []),
+        ]
+    );
 
     return rows;
 };

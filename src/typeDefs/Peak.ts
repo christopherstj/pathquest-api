@@ -7,4 +7,13 @@ export default interface Peak {
     County?: string;
     State?: string;
     Country?: string;
+    isFavorited?: boolean;
+    summits?: number;
+    publicSummits?: number;
+    ascents?: {
+        id: string;
+        timestamp: string;
+        activityId: string;
+        notes?: string;
+    }[];
 }

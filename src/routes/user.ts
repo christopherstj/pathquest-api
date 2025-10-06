@@ -34,7 +34,7 @@ export default async function user(
         };
     }>("/user/:userId", async (request, reply) => {
         const { userId } = request.params as { userId: string };
-        const requestingUserId = request.query.requestingUserId;
+        const requestingUserId = request.query.requestingUserId ?? "";
 
         const includePrivate = requestingUserId === userId;
 

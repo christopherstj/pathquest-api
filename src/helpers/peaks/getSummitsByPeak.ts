@@ -7,6 +7,7 @@ const getSummitsByPeak = async (peakId: string, userId: string) => {
             id: string;
             timestamp: string;
             activityId: string;
+            notes?: string;
         } & RowDataPacket)[]
     >(
         `

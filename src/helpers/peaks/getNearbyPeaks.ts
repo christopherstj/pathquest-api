@@ -2,13 +2,16 @@ import { RowDataPacket } from "mysql2";
 import Peak from "../../typeDefs/Peak";
 import db from "../getCloudSqlConnection";
 
-const getPeakById = async (
-    peakId: string,
+const getNearbyPeaks = async (
+    lat: number,
+    lng: number,
     userId?: string
-): Promise<Peak | undefined> => {
+): Promise<Peak[]> => {
     const query = userId
         ? `
-            SELECT p.*, upf.userId IS NOT NULL isFavorited, COUNT(ap2.id) summits, COUNT(ap3.id) publicSummits
+            SELECT p.*,
+            SQRT(POW(? - ABS(p.Lat), 2) + POW(? - ABS(p.\`Long\`), 2)) distance,
+            upf.userId IS NOT NULL isFavorited, COUNT(ap2.id) summits, COUNT(ap3.id) publicSummits
             FROM Peak p 
             LEFT JOIN (
                 SELECT ap.id, ap.peakId FROM (
@@ -32,7 +35,9 @@ const getPeakById = async (
             GROUP BY p.\`Name\`, p.Id, p.Lat, p.\`Long\`, upf.userId
         `
         : `
-            SELECT p.*, COUNT(ap.id) publicSummits
+            SELECT p.*, 
+            SQRT(POW(? - ABS(p.Lat), 2) + POW(? - ABS(p.\`Long\`), 2)) distance,
+            COUNT(ap.id) publicSummits
             FROM Peak p
             LEFT JOIN (
                 SELECT ap2.id, ap2.peakId FROM ActivityPeak ap2 WHERE ap2.isPublic = 1
@@ -44,13 +49,13 @@ const getPeakById = async (
             GROUP BY p.Id
         `;
 
-    const params = userId ? [userId, peakId] : [peakId];
+    const params = userId
+        ? [Math.abs(lat ?? 0), Math.abs(lng ?? 0), userId]
+        : [Math.abs(lat ?? 0), Math.abs(lng ?? 0)];
 
     const [rows] = await db.query<(Peak & RowDataPacket)[]>(query, params);
 
-    const peak = rows[0] || undefined;
-
-    return peak;
+    return rows;
 };
 
-export default getPeakById;
+export default getNearbyPeaks;

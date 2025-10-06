@@ -20,6 +20,8 @@ import updateAscent from "../helpers/peaks/updateAscent";
 import getAscentOwnerId from "../helpers/peaks/getAscentOwnerId";
 import deleteAscent from "../helpers/peaks/deleteAscent";
 import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
+import searchPeaks from "../helpers/peaks/searchPeaks";
+import Peak from "../typeDefs/Peak";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -34,6 +36,65 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         const search = request.query.search;
 
         const peaks = await getPeaks(page, perPage, search);
+        reply.code(200).send(peaks);
+    });
+
+    fastify.get<{
+        Querystring: {
+            northWestLat?: string;
+            northWestLng?: string;
+            southEastLat?: string;
+            southEastLng?: string;
+            page?: string;
+            perPage?: string;
+            search?: string;
+            userId?: string;
+            showSummittedPeaks?: string;
+        };
+    }>("/peaks/search", async function (request, reply) {
+        const northWestLat = request.query.northWestLat
+            ? parseFloat(request.query.northWestLat)
+            : undefined;
+        const northWestLng = request.query.northWestLng
+            ? parseFloat(request.query.northWestLng)
+            : undefined;
+        const southEastLat = request.query.southEastLat
+            ? parseFloat(request.query.southEastLat)
+            : undefined;
+        const southEastLng = request.query.southEastLng
+            ? parseFloat(request.query.southEastLng)
+            : undefined;
+        const page = request.query.page
+            ? parseInt(request.query.page)
+            : undefined;
+        const perPage = request.query.perPage
+            ? parseInt(request.query.perPage)
+            : undefined;
+        const search = request.query.search;
+        const userId = request.query.userId;
+        const showSummittedPeaks = userId
+            ? request.query.showSummittedPeaks === "true"
+            : false;
+
+        const bounds =
+            northWestLat && northWestLng && southEastLat && southEastLng
+                ? ([
+                      [northWestLat, northWestLng],
+                      [southEastLat, southEastLng],
+                  ] as [[number, number], [number, number]])
+                : undefined;
+
+        const addPagination = !search && !bounds && (!page || !perPage);
+
+        const peaks = await searchPeaks(
+            bounds,
+            userId,
+            search,
+            showSummittedPeaks,
+            addPagination ? 1 : page,
+            addPagination ? 1000 : perPage
+        );
+
         reply.code(200).send(peaks);
     });
 
@@ -64,20 +125,49 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         Querystring: {
             userId: string;
         };
-    }>("/peaks/details/:id", async function (request, reply) {
+    }>("/peaks/:id", async function (request, reply) {
         const peakId = request.params.id;
         const userId = request.query.userId;
 
         const peak = await getPeakById(peakId, userId);
 
-        if (peak?.isSummitted) {
+        if (userId) {
             const activities = await getActivityByPeak(peakId, userId, true);
             const summits = await getSummitsByPeak(peakId, userId);
-            reply.code(200).send({ peak, activities, summits });
+            reply.code(200).send({
+                peak: {
+                    ...peak,
+                    ascents: summits,
+                } as Peak,
+                activities,
+            });
         } else {
-            reply.code(200).send({ peak, activities: [], summits: [] });
+            reply.code(200).send({ peak, activities: [] });
         }
     });
+
+    // NOT USED
+    // fastify.get<{
+    //     Params: {
+    //         id: string;
+    //     };
+    //     Querystring: {
+    //         userId: string;
+    //     };
+    // }>("/peaks/details/:id", async function (request, reply) {
+    //     const peakId = request.params.id;
+    //     const userId = request.query.userId;
+
+    //     const peak = await getPeakById(peakId, userId);
+
+    //     if (peak?.summits && peak.summits > 0) {
+    //         const activities = await getActivityByPeak(peakId, userId, true);
+    //         const summits = await getSummitsByPeak(peakId, userId);
+    //         reply.code(200).send({ peak, activities, summits });
+    //     } else {
+    //         reply.code(200).send({ peak, activities: [], summits: [] });
+    //     }
+    // });
 
     fastify.get<{
         Params: {

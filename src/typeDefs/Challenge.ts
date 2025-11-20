@@ -2,7 +2,7 @@ export default interface Challenge {
     id: number;
     name: string;
     region?: string;
-    centerLat?: number;
-    centerLong?: number;
-    numPeaks: number;
+    location_coords?: [number, number];
+    description: string;
+    num_peaks: number;
 }

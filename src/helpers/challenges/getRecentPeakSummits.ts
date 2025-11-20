@@ -1,30 +1,30 @@
-import { RowDataPacket } from "mysql2/promise";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getRecentPeakSummits = async (userId: string, peakId: string) => {
-    const [ascents] = await db.query<
-        ({
-            id: string;
-            timestamp: string;
-            activityId: string;
-            timezone?: string;
-        } & RowDataPacket)[]
-    >(
-        `
-        SELECT ap.id, ap.\`timestamp\`, ap.activityId, ap.\`timezone\`
+    const db = await getCloudSqlConnection();
+    const ascents = (
+        await db.query(
+            `
+        SELECT ap.id, ap.timestamp, ap.activity_id, ap.timezone
         FROM (
-            SELECT a.timezone, a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-            LEFT JOIN Activity a ON a.id = ap.activityId
+            SELECT a.timezone, a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+            LEFT JOIN activities a ON a.id = ap.activity_id
             UNION
-            SELECT timezone, userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT timezone, user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
         ) ap
-        WHERE peakId = ?
-        AND ap.userId = ?
-        ORDER BY ap.\`timestamp\` DESC
+        WHERE peak_id = $1
+        AND ap.user_id = $2
+        ORDER BY ap.timestamp DESC
         LIMIT 3
     `,
-        [peakId, userId]
-    );
+            [peakId, userId]
+        )
+    ).rows as {
+        id: string;
+        timestamp: string;
+        activity_id: string;
+        timezone?: string;
+    }[];
 
     return ascents;
 };

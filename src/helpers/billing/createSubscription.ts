@@ -1,12 +1,13 @@
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const createSubscription = async (
     userId: string,
     email: string | null,
     stripeUserId: string | null
 ) => {
-    await db.execute(
-        `UPDATE User SET isSubscribed = 1, stripeUserId = ?, email = ? WHERE id = ?`,
+    const db = await getCloudSqlConnection();
+    await db.query(
+        `UPDATE users SET is_subscribed = true, stripe_user_id = $1, email = $2 WHERE id = $3`,
         [stripeUserId, email, userId]
     );
 };

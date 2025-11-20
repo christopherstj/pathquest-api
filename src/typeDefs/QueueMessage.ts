@@ -1,9 +1,9 @@
 export default interface QueueMessage {
-    userId: string;
+    user_id: string;
     action: string;
     created: string;
     started?: string;
     completed?: string;
-    jsonData?: string;
-    isWebhook: boolean;
+    json_data?: string;
+    is_webhook: boolean;
 }

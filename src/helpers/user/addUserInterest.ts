@@ -1,8 +1,9 @@
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const addUserInterest = async (email: string) => {
-    await db.execute(
-        `INSERT INTO UserInterest (email, dateRegistered) VALUES (?, CURRENT_TIMESTAMP())`,
+    const db = await getCloudSqlConnection();
+    await db.query(
+        `INSERT INTO user_interest (email, date_registered) VALUES ($1, CURRENT_TIMESTAMP)`,
         [email]
     );
 

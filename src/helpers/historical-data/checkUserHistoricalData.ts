@@ -1,16 +1,16 @@
-import { RowDataPacket } from "mysql2";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const checkUserHistoricalData = async (userId: string) => {
-    const [rows] = await db.query<
-        ({
-            historicalDataProcessed: boolean;
-        } & RowDataPacket)[]
-    >(
-        `SELECT historicalDataProcessed = 1 historicalDataProcessed
-        FROM \`User\` WHERE id = ? LIMIT 1`,
-        [userId]
-    );
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(
+            `SELECT historical_data_processed
+            FROM users WHERE id = $1`,
+            [userId]
+        )
+    ).rows as {
+        historical_data_processed: boolean;
+    }[];
 
     const user = rows[0];
 
@@ -18,7 +18,7 @@ const checkUserHistoricalData = async (userId: string) => {
         return null;
     }
 
-    return user.historicalDataProcessed;
+    return user.historical_data_processed;
 };
 
 export default checkUserHistoricalData;

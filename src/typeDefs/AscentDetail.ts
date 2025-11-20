@@ -1,9 +1,9 @@
 export default interface AscentDetail {
     id: string;
     timestamp: string;
-    activityId: string;
-    peakId: string;
+    activity_id: string;
+    peak_id: string;
     notes: string;
-    isPublic: boolean;
+    is_public: boolean;
     timezone: string;
 }

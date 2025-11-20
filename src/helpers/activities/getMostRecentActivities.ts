@@ -1,40 +1,39 @@
-import { RowDataPacket, format } from "mysql2";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const getMostRecentActivities = async (
     userId: string,
     summitsOnly: boolean
 ) => {
-    const [rows] = await db.query<
-        (Activity & { peakSummits: number } & RowDataPacket)[]
-    >(
-        `
-        SELECT a.\`id\`,
-            a.\`startLat\`,
-            a.\`startLong\`,
-            a.\`distance\`,
-            a.\`startTime\`,
-            a.\`sport\`,
-            a.\`name\`,
-            a.\`timezone\`,
-            a.\`gain\`,
-            COUNT(ap.id) peakSummits
-        FROM \`Activity\` a
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(
+            `
+        SELECT a.id,
+            ARRAY[ST_X(a.start_coords::geometry), ST_Y(a.start_coords::geometry)] as start_coords,
+            a.distance,
+            a.start_time,
+            a.sport,
+            a.title,
+            a.timezone,
+            a.gain,
+            COUNT(ap.id) AS peak_summits
+        FROM activities a
         LEFT JOIN (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM activities_peaks
             UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
         ) ap
-        ON a.id = ap.activityId
-        WHERE userId = ?
+        ON a.id = ap.activity_id
+        WHERE user_id = $1
         GROUP BY a.id
-        ${summitsOnly ? "HAVING peakSummits > 0" : ""}
-        ORDER BY a.startTime DESC
-        LIMIT 20;
+        ${summitsOnly ? "HAVING COUNT(ap.id) > 0" : ""}
+        ORDER BY a.start_time DESC
+        LIMIT 20
         `,
-        [userId]
-    );
+            [userId]
+        )
+    ).rows as (Activity & { peak_summits: number })[];
 
     return rows;
 };

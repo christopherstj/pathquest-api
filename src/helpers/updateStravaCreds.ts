@@ -1,21 +1,14 @@
 import { StravaCreds } from "../typeDefs/StravaCreds";
-import db from "./getCloudSqlConnection";
+import getCloudSqlConnection from "./getCloudSqlConnection";
 
 const updateStravaCreds = async (stravaCreds: StravaCreds) => {
-    const { providerAccountId, accessToken, refreshToken, expiresAt } =
+    const db = await getCloudSqlConnection();
+    const { provider_account_id, access_token, refresh_token, expires_at } =
         stravaCreds;
 
-    await db.execute(
-        "INSERT INTO StravaToken (userId, accessToken, refreshToken, accessTokenExpiresAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE accessToken = ?, refreshToken = ?, accessTokenExpiresAt = ?",
-        [
-            providerAccountId,
-            accessToken,
-            refreshToken,
-            expiresAt,
-            accessToken,
-            refreshToken,
-            expiresAt,
-        ]
+    await db.query(
+        "INSERT INTO strava_tokens (user_id, access_token, refresh_token, access_token_expires_at) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET access_token = $2, refresh_token = $3, access_token_expires_at = $4",
+        [provider_account_id, access_token, refresh_token, expires_at]
     );
 };
 

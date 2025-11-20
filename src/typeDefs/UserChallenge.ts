@@ -1,6 +1,6 @@
 import Challenge from "./Challenge";
 
 export default interface UserChallenge extends Challenge {
-    isFavorited: boolean;
-    isPublic: boolean;
+    is_favorited: boolean;
+    is_public: boolean;
 }

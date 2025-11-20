@@ -1,4 +1,4 @@
-import PeakSummit from "../../typeDefs/PeakSummit";
+import Peak from "../../typeDefs/Peak";
 import getActivityById from "./getActivityById";
 import getPeaksByActivity from "./getPeaksByActivity";
 import getSummitsByPeakAndActivity from "./getSummitsByPeakAndActivity";
@@ -6,12 +6,12 @@ import getSummitsByPeakAndActivity from "./getSummitsByPeakAndActivity";
 const getActivityDetails = async (activityId: string) => {
     const peakIds = await getPeaksByActivity(activityId);
 
-    const promises = peakIds.map(async (peak): Promise<PeakSummit> => {
-        const ascents = await getSummitsByPeakAndActivity(peak.Id, activityId);
+    const promises = peakIds.map(async (peak): Promise<Peak> => {
+        const ascents = await getSummitsByPeakAndActivity(peak.id, activityId);
 
         return {
             ...peak,
-            ascents: ascents.map((a) => ({ ...a, activityId })),
+            ascents: ascents.map((a) => ({ ...a, activity_id: activityId })),
         };
     });
 

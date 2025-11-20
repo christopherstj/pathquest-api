@@ -1,19 +1,21 @@
-import { RowDataPacket } from "mysql2/promise";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getActivityOwnerId = async (
     activityId: string
 ): Promise<string | null> => {
-    const [rows] = await db.query<({ userId: string } & RowDataPacket)[]>(
-        `SELECT userId FROM Activity WHERE id = ? LIMIT 1`,
-        [activityId]
-    );
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query<{ user_id: string }>(
+            `SELECT user_id FROM activities WHERE id = $1 LIMIT 1`,
+            [activityId]
+        )
+    ).rows;
 
     if (rows.length === 0) {
         return null;
     }
 
-    return rows[0].userId;
+    return rows[0].user_id;
 };
 
 export default getActivityOwnerId;

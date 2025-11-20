@@ -1,33 +1,34 @@
-import { RowDataPacket } from "mysql2/promise";
 import User from "../../typeDefs/User";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getUser = async (userId: string) => {
-    const [rows] = await db.query<(User & RowDataPacket)[]>(
-        `SELECT u.id, 
-        u.\`name\`, 
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query<User>(
+            `SELECT u.id, 
+        u.name, 
         u.email,
         u.pic,
-        u.updateDescription = 1 updateDescription,
+        u.update_description,
         u.city,
         u.state,
         u.country,
-        u.lat,
-        u.\`long\`,
+        ARRAY[ST_X(u.location_coords::geometry), ST_Y(u.location_coords::geometry)] as location_coords,
         u.units,
-        u.isSubscribed = 1 isSubscribed,
-        u.isLifetimeFree = 1 isLifetimeFree,
-        u.historicalDataProcessed = 1 historicalDataProcessed,
-        COUNT(eq.id) as processingActivityCount
-        FROM \`User\` u
+        u.is_subscribed,
+        u.is_lifetime_free,
+        u.historical_data_processed,
+        COUNT(eq.id) as processing_activity_count
+        FROM users u
         LEFT JOIN (
-            SELECT id, userId FROM EventQueue WHERE userId = ? AND completed IS NULL AND attempts < 5
-        ) eq ON eq.userId = u.id
-        WHERE u.id = ?
+            SELECT id, user_id FROM event_queue WHERE user_id = $1 AND completed IS NULL AND attempts < 5
+        ) eq ON eq.user_id = u.id
+        WHERE u.id = $2
         GROUP BY u.id
         LIMIT 1;`,
-        [userId, userId]
-    );
+            [userId, userId]
+        )
+    ).rows;
 
     const user = rows[0];
 

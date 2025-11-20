@@ -1,8 +1,10 @@
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const deleteActivity = async (activityId: string) => {
-    await db.execute(`DELETE FROM Activity WHERE id = ?`, [activityId]);
-    await db.execute(`DELETE FROM UserPeakManual WHERE activityId = ?`, [
+    const db = await getCloudSqlConnection();
+
+    await db.query(`DELETE FROM activities WHERE id = $1`, [activityId]);
+    await db.query(`DELETE FROM user_peak_manual WHERE activity_id = $1`, [
         activityId,
     ]);
 };

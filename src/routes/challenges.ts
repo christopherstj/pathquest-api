@@ -138,9 +138,9 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
         }
 
         await addChallengeFavorite({
-            userId,
-            challengeId,
-            isPublic: privacy,
+            user_id: userId,
+            challenge_id: challengeId,
+            is_public: privacy,
         });
 
         reply.code(200).send();
@@ -149,13 +149,13 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.put<{
         Body: UserChallengeFavorite;
     }>("/challenges/favorite", async (request, reply) => {
-        const { userId, challengeId, isPublic } = request.body;
+        const { user_id, challenge_id, is_public } = request.body;
 
         console.log(
-            `Updating favorite for user ${userId} and challenge ${challengeId} to public: ${isPublic}`
+            `Updating favorite for user ${user_id} and challenge ${challenge_id} to public: ${is_public}`
         );
 
-        await updateChallengePrivacy(userId, challengeId, isPublic);
+        await updateChallengePrivacy(user_id, challenge_id, is_public);
 
         reply.code(200).send();
     });

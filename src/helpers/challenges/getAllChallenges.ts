@@ -1,6 +1,4 @@
-import { format, RowDataPacket } from "mysql2";
-import db from "../getCloudSqlConnection";
-import Challenge from "../../typeDefs/Challenge";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 import ChallengeProgress from "../../typeDefs/ChallengeProgress";
 
 const getAllChallenges = async (
@@ -19,20 +17,43 @@ const getAllChallenges = async (
     search?: string,
     favoritesOnly: boolean = false
 ) => {
+    const db = await getCloudSqlConnection();
+
+    const params: any[] = [userId];
+    let paramIndex = 2;
+
     const getWhereClause = () => {
         const clauses = [] as string[];
 
         if (search) {
-            clauses.push("c.`name` LIKE ?");
+            clauses.push(`c.name LIKE $${paramIndex}`);
+            params.push(`%${search}%`);
+            paramIndex++;
         }
         if (bounds) {
             clauses.push(
-                "c.centerLat BETWEEN ? AND ? AND c.centerLong BETWEEN ? AND ?"
+                `c.center_lat BETWEEN $${paramIndex} AND $${paramIndex + 1}`
             );
+            params.push(
+                Math.min(bounds.northWest.lat, bounds.southEast.lat),
+                Math.max(bounds.northWest.lat, bounds.southEast.lat)
+            );
+            paramIndex += 2;
+
+            clauses.push(
+                `c.center_long BETWEEN $${paramIndex} AND $${paramIndex + 1}`
+            );
+            params.push(
+                Math.min(bounds.northWest.lng, bounds.southEast.lng),
+                Math.max(bounds.northWest.lng, bounds.southEast.lng)
+            );
+            paramIndex += 2;
         }
 
         if (favoritesOnly) {
-            clauses.push("ucf.userId = ?");
+            clauses.push(`ucf.user_id = $${paramIndex}`);
+            params.push(userId);
+            paramIndex++;
         }
 
         return clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -55,47 +76,32 @@ const getAllChallenges = async (
     };
 
     const query = `
-        SELECT c.id, c.\`name\`, c.centerLat, c.centerLong, c.region, COUNT(p.Id) total, COUNT(ap2.summitted) completed 
-        FROM Challenge c 
+        SELECT c.id, c.name, c.center_lat, c.center_long, c.region, COUNT(p.id) AS total, COUNT(ap2.summitted) AS completed 
+        FROM challenges c 
         ${
             favoritesOnly
-                ? "LEFT JOIN UserChallengeFavorite ucf ON c.id = ucf.challengeId"
+                ? "LEFT JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id"
                 : ""
         }
-        LEFT JOIN PeakChallenge pc ON pc.challengeId = c.id 
-        LEFT JOIN Peak p ON pc.peakId = p.Id
+        LEFT JOIN peak_challenge pc ON pc.challenge_id = c.id 
+        LEFT JOIN peaks p ON pc.peak_id = p.id
         LEFT JOIN 
             (
-                SELECT ap.peakId, COUNT(ap.peakId) > 0 summitted FROM (
-                    SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-                    LEFT JOIN Activity a ON a.id = ap.activityId
+                SELECT ap.peak_id, COUNT(ap.peak_id) > 0 AS summitted FROM (
+                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                    LEFT JOIN activities a ON a.id = ap.activity_id
                     UNION
-                    SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
                 ) ap
-                WHERE ap.userId = ?
-                GROUP BY ap.peakId
-            ) ap2 ON p.Id = ap2.peakId
+                WHERE ap.user_id = $1
+                GROUP BY ap.peak_id
+            ) ap2 ON p.id = ap2.peak_id
         ${getWhereClause()}
-        GROUP BY c.id, c.\`name\`, c.centerLat, c.centerLong
-        ${getHavingClauses()};
+        GROUP BY c.id, c.name, c.center_lat, c.center_long
+        ${getHavingClauses()}
     `;
 
-    const [rows] = await db.query<(ChallengeProgress & RowDataPacket)[]>(
-        query,
-        [
-            userId,
-            ...(search ? [`%${search}%`] : []),
-            ...(bounds
-                ? [
-                      Math.min(bounds.northWest.lat, bounds.southEast.lat),
-                      Math.max(bounds.northWest.lat, bounds.southEast.lat),
-                      Math.min(bounds.northWest.lng, bounds.southEast.lng),
-                      Math.max(bounds.northWest.lng, bounds.southEast.lng),
-                  ]
-                : []),
-            ...(favoritesOnly ? [userId] : []),
-        ]
-    );
+    const rows = (await db.query(query, params)).rows as ChallengeProgress[];
 
     return rows;
 };

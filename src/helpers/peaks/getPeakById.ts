@@ -1,56 +1,61 @@
-import { RowDataPacket } from "mysql2";
 import Peak from "../../typeDefs/Peak";
-import db from "../getCloudSqlConnection";
+import convertPgNumbers from "../convertPgNumbers";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getPeakById = async (
     peakId: string,
     userId?: string
 ): Promise<Peak | undefined> => {
+    const db = await getCloudSqlConnection();
     const query = userId
         ? `
-            SELECT p.*, upf.userId IS NOT NULL isFavorited, COUNT(ap2.id) summits, COUNT(ap3.id) publicSummits
-            FROM Peak p 
+            SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
+            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
+            upf.user_id IS NOT NULL AS is_favorited, COUNT(ap2.id) AS summits, COUNT(ap3.id) AS public_summits
+            FROM peaks p 
             LEFT JOIN (
-                SELECT ap.id, ap.peakId FROM (
-                    SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-                    LEFT JOIN Activity a ON a.id = ap.activityId
+                SELECT ap.id, ap.peak_id FROM (
+                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                    LEFT JOIN activities a ON a.id = ap.activity_id
                     UNION
-                    SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
                 ) ap
-                LEFT JOIN Activity a ON ap.activityId = a.id
-                WHERE ap.userId = ?
-            ) ap2 ON p.Id = ap2.peakId
+                LEFT JOIN activities a ON ap.activity_id = a.id
+                WHERE ap.user_id = $1
+            ) ap2 ON p.id = ap2.peak_id
             LEFT JOIN (
-                SELECT ap4.id, ap4.peakId FROM ActivityPeak ap4 WHERE ap4.isPublic = 1
+                SELECT ap4.id, ap4.peak_id FROM activities_peaks ap4 WHERE ap4.is_public = true
                 UNION
-                SELECT upm.id, upm.peakId FROM UserPeakManual upm WHERE upm.isPublic = 1
+                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
             )
-            ap3 ON ap3.peakId = p.Id
-            LEFT JOIN UserPeakFavorite upf
-            ON p.id = upf.peakId
-            WHERE p.Id = ?
-            GROUP BY p.\`Name\`, p.Id, p.Lat, p.\`Long\`, upf.userId
+            ap3 ON ap3.peak_id = p.id
+            LEFT JOIN user_peak_favorite upf
+            ON p.id = upf.peak_id
+            WHERE p.id = $2
+            GROUP BY p.name, p.id, p.location_coords, upf.user_id, p.elevation, p.county, p.state, p.country
         `
         : `
-            SELECT p.*, COUNT(ap.id) publicSummits
-            FROM Peak p
+            SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
+            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
+            COUNT(ap.id) AS public_summits
+            FROM peaks p
             LEFT JOIN (
-                SELECT ap2.id, ap2.peakId FROM ActivityPeak ap2 WHERE ap2.isPublic = 1
+                SELECT ap2.id, ap2.peak_id FROM activities_peaks ap2 WHERE ap2.is_public = true
                 UNION
-                SELECT upm.id, upm.peakId FROM UserPeakManual upm WHERE upm.isPublic = 1
+                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
             )
-            ap ON ap.peakId = p.Id
-            WHERE p.Id = ?
-            GROUP BY p.Id
+            ap ON ap.peak_id = p.id
+            WHERE p.id = $1
+            GROUP BY p.id
         `;
 
     const params = userId ? [userId, peakId] : [peakId];
 
-    const [rows] = await db.query<(Peak & RowDataPacket)[]>(query, params);
+    const rows = (await db.query(query, params)).rows as Peak[];
 
     const peak = rows[0] || undefined;
 
-    return peak;
+    return convertPgNumbers(peak);
 };
 
 export default getPeakById;

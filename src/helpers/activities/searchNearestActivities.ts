@@ -1,5 +1,4 @@
-import { RowDataPacket } from "mysql2";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 import Activity from "../../typeDefs/Activity";
 
 const searchNearestActivities = async (
@@ -9,39 +8,40 @@ const searchNearestActivities = async (
     page: number,
     search?: string
 ) => {
+    const db = await getCloudSqlConnection();
     const rowsPerPage = 50;
     const offset = (page - 1) * rowsPerPage;
 
     const query = `
-        SELECT \`id\`,
-            \`startLat\`,
-            \`startLong\`,
-            \`distance\`,
-            \`startTime\`,
-            \`sport\`,
-            \`name\`,
-            \`timezone\`,
-            \`gain\`,
-            SQRT(POW(? - ABS(startLat), 2) + POW(? - ABS(startLong), 2)) distanceFromPeak
+        SELECT id,
+            ARRAY[ST_X(start_coords::geometry), ST_Y(start_coords::geometry)] as start_coords,
+            distance,
+            start_time,
+            sport,
+            title,
+            timezone,
+            gain,
+            ST_Distance(start_coords, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) AS distance_from_peak
         FROM
-            Activity
+            activities
         WHERE
-            userId = ?
-            AND startLat IS NOT NULL
-            AND startLong IS NOT NULL
-            ${search ? `AND name LIKE CONCAT('%', ?, '%')` : ""}
+            user_id = $3
+            AND start_coords IS NOT NULL
+            ${search ? `AND title LIKE $4` : ""}
         ORDER BY
-            distanceFromPeak ASC
+            distance_from_peak ASC
         LIMIT
-            ${offset}, ${rowsPerPage}
+            ${rowsPerPage}
+        OFFSET
+            ${offset}
 
     `;
 
     const params = search
-        ? [Math.abs(lat ?? 0), Math.abs(lng ?? 0), userId, search]
-        : [Math.abs(lat ?? 0), Math.abs(lng ?? 0), userId];
+        ? [lat, lng, userId, `%${search}%`]
+        : [lat, lng, userId];
 
-    const [rows] = await db.query<(Activity & RowDataPacket)[]>(query, params);
+    const rows = (await db.query(query, params)).rows as Activity[];
 
     return rows;
 };

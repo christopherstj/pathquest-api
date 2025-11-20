@@ -1,11 +1,13 @@
-import { RowDataPacket } from "mysql2";
-import db from "./getCloudSqlConnection";
+import getCloudSqlConnection from "./getCloudSqlConnection";
 import StravaRateLimit from "../typeDefs/StravaRateLimit";
 
 const checkRateLimit = async () => {
-    const [rows] = await db.query<(StravaRateLimit & RowDataPacket)[]>(`
-        SELECT * FROM StravaRateLimit
-    `);
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(`
+        SELECT * FROM strava_rate_limits
+    `)
+    ).rows as StravaRateLimit[];
 
     if (rows.length === 0) {
         return false;
@@ -13,11 +15,11 @@ const checkRateLimit = async () => {
 
     const rateLimit = rows[0];
 
-    if (rateLimit.shortTermLimit - rateLimit.shortTermUsage < 3) {
+    if (rateLimit.short_term_limit - rateLimit.short_term_usage < 3) {
         return false;
     }
 
-    if (rateLimit.dailyLimit - rateLimit.dailyUsage < 3) {
+    if (rateLimit.daily_limit - rateLimit.daily_usage < 3) {
         return false;
     }
 

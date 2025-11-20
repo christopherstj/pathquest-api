@@ -1,10 +1,11 @@
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const setReprocessingStatus = async (activityId: string, status: boolean) => {
-    await db.execute(`UPDATE Activity SET pendingReprocess = ? WHERE id = ?`, [
-        status,
-        activityId,
-    ]);
+    const db = await getCloudSqlConnection();
+    await db.query(
+        `UPDATE activities SET pending_reprocess = $1 WHERE id = $2`,
+        [status, activityId]
+    );
 };
 
 export default setReprocessingStatus;

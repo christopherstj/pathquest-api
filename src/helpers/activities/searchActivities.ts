@@ -1,6 +1,5 @@
-import { RowDataPacket } from "mysql2/promise";
 import Activity from "../../typeDefs/Activity";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const searchActivities = async (
     userId: string,
@@ -16,17 +15,37 @@ const searchActivities = async (
         };
     }
 ) => {
+    const db = await getCloudSqlConnection();
     if (!bounds && (!search || search.length < 3)) {
         throw new Error("Search query must be at least 3 characters long");
     }
 
-    const clauses: string[] = ["userId = ?"];
+    const clauses: string[] = ["user_id = $1"];
+    let paramIndex = 2;
+    const params: any[] = [userId];
+
     if (bounds) {
-        clauses.push(`startLong BETWEEN ? AND ?`, `startLat BETWEEN ? AND ?`);
+        clauses.push(
+            `start_long BETWEEN $${paramIndex} AND $${paramIndex + 1}`
+        );
+        params.push(
+            Math.min(bounds.northWest.lng, bounds.southEast.lng),
+            Math.max(bounds.northWest.lng, bounds.southEast.lng)
+        );
+        paramIndex += 2;
+
+        clauses.push(`start_lat BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
+        params.push(
+            Math.min(bounds.northWest.lat, bounds.southEast.lat),
+            Math.max(bounds.northWest.lat, bounds.southEast.lat)
+        );
+        paramIndex += 2;
     }
 
     if (search) {
-        clauses.push(`\`name\` LIKE ?`);
+        clauses.push(`title LIKE $${paramIndex}`);
+        params.push(`%${search}%`);
+        paramIndex++;
     }
 
     if (clauses.length < 1) {
@@ -35,34 +54,26 @@ const searchActivities = async (
 
     const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
-    const [rows] = await db.query<
-        (Omit<Activity, "coords"> & { peakSummits: number } & RowDataPacket)[]
-    >(
-        `
-        SELECT a.id, a.startLat, a.startLong, a.distance, a.startTime, a.\`name\`, a.sport, a.timezone, a.gain, COUNT(ap.peakId) peakSummits
-        FROM Activity a 
+    const rows = (
+        await db.query(
+            `
+        SELECT a.id,
+            ARRAY[ST_X(a.start_coords::geometry), ST_Y(a.start_coords::geometry)] as start_coords,
+            a.distance, a.start_time, a.title, a.sport, a.timezone, a.gain,
+            COUNT(ap.peak_id) AS peak_summits
+        FROM activities a 
         LEFT JOIN (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM activities_peaks
             UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
         ) ap 
-        ON ap.activityId = a.id 
+        ON ap.activity_id = a.id 
         ${whereClause}
-        GROUP BY a.id, a.startLat, a.startLong, a.distance, a.startTime, a.\`name\`, a.timezone, a.gain
+        GROUP BY a.id, a.start_coords, a.distance, a.start_time, a.title, a.timezone, a.gain
         `,
-        [
-            userId,
-            ...(bounds
-                ? [
-                      Math.min(bounds.northWest.lat, bounds.southEast.lat),
-                      Math.max(bounds.northWest.lat, bounds.southEast.lat),
-                      Math.min(bounds.northWest.lng, bounds.southEast.lng),
-                      Math.max(bounds.northWest.lng, bounds.southEast.lng),
-                  ]
-                : []),
-            ...(search ? [`%${search}%`] : []),
-        ]
-    );
+            params
+        )
+    ).rows as Activity[];
 
     return rows;
 };

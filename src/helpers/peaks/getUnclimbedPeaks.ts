@@ -1,6 +1,5 @@
-import mysql, { RowDataPacket } from "mysql2/promise";
 import Peak from "../../typeDefs/Peak";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getUnclimbedPeaks = async (
     userId: string,
@@ -8,66 +7,92 @@ const getUnclimbedPeaks = async (
     search?: string,
     showSummittedPeaks?: boolean
 ) => {
+    const db = await getCloudSqlConnection();
+
     if (!bounds && !search) {
         return [];
     }
 
+    let paramIndex = 2; // Start at 2 since $1 is userId
     const getWhereClause = () => {
         if (!showSummittedPeaks && bounds && search) {
-            return "WHERE ap2.id IS NULL AND p.Name LIKE ? AND p.Lat BETWEEN ? AND ? AND p.`Long` BETWEEN ? AND ?";
+            const clause = `WHERE ap2.id IS NULL AND p.name LIKE $${paramIndex} AND p.lat BETWEEN $${
+                paramIndex + 1
+            } AND $${paramIndex + 2} AND p.long BETWEEN $${
+                paramIndex + 3
+            } AND $${paramIndex + 4}`;
+            paramIndex += 5;
+            return clause;
         } else if (!showSummittedPeaks && bounds) {
-            return "WHERE ap2.id IS NULL AND p.Lat BETWEEN ? AND ? AND p.`Long` BETWEEN ? AND ?";
+            const clause = `WHERE ap2.id IS NULL AND p.lat BETWEEN $${paramIndex} AND $${
+                paramIndex + 1
+            } AND p.long BETWEEN $${paramIndex + 2} AND $${paramIndex + 3}`;
+            paramIndex += 4;
+            return clause;
         } else if (!showSummittedPeaks && search) {
-            return "WHERE ap2.id IS NULL AND p.Name LIKE ?";
+            const clause = `WHERE ap2.id IS NULL AND p.name LIKE $${paramIndex}`;
+            paramIndex += 1;
+            return clause;
         } else if (bounds && search) {
-            return "WHERE p.Name LIKE ? AND p.Lat BETWEEN ? AND ? AND p.`Long` BETWEEN ? AND ?";
+            const clause = `WHERE p.name LIKE $${paramIndex} AND p.lat BETWEEN $${
+                paramIndex + 1
+            } AND $${paramIndex + 2} AND p.long BETWEEN $${
+                paramIndex + 3
+            } AND $${paramIndex + 4}`;
+            paramIndex += 5;
+            return clause;
         } else if (bounds) {
-            return "WHERE p.Lat BETWEEN ? AND ? AND p.`Long` BETWEEN ? AND ?";
+            const clause = `WHERE p.lat BETWEEN $${paramIndex} AND $${
+                paramIndex + 1
+            } AND p.long BETWEEN $${paramIndex + 2} AND $${paramIndex + 3}`;
+            paramIndex += 4;
+            return clause;
         } else if (search) {
-            return "WHERE p.Name LIKE ?";
+            const clause = `WHERE p.name LIKE $${paramIndex}`;
+            paramIndex += 1;
+            return clause;
         } else {
             return "";
         }
     };
 
     const query = `
-            SELECT p.*, upf.userId IS NOT NULL isFavorited${
-                showSummittedPeaks ? ", COUNT(ap2.id) > 0 isSummitted" : ""
+            SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
+            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
+            upf.user_id IS NOT NULL AS is_favorited${
+                showSummittedPeaks ? ", COUNT(ap2.id) AS summits" : ""
             }
-            FROM Peak p 
+            FROM peaks p 
             LEFT JOIN (
-                SELECT ap.id, ap.peakId FROM (
-                    SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-                    LEFT JOIN Activity a ON a.id = ap.activityId
+                SELECT ap.id, ap.peak_id FROM (
+                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                    LEFT JOIN activities a ON a.id = ap.activity_id
                     UNION
-                    SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
                 ) ap
-                WHERE ap.userId = ?
-            ) ap2 ON p.Id = ap2.peakId
-            LEFT JOIN UserPeakFavorite upf
-            ON p.id = upf.peakId
+                WHERE ap.user_id = $1
+            ) ap2 ON p.id = ap2.peak_id
+            LEFT JOIN user_peak_favorite upf
+            ON p.id = upf.peak_id
             ${getWhereClause()}
-            GROUP BY p.\`Name\`, p.Id, p.Lat, p.\`Long\`, upf.userId
-            ORDER BY p.Altitude DESC;
+            GROUP BY p.name, p.id, p.location_coords, upf.user_id, p.elevation, p.county, p.state, p.country
+            ORDER BY p.elevation DESC;
         `;
 
-    const [rows] = await db.query<
-        (Peak & {
-            isFavorited: boolean;
-            isSummitted?: boolean;
-        } & RowDataPacket)[]
-    >(query, [
-        userId,
-        ...(search ? [`%${search}%`] : []),
-        ...(bounds
-            ? [
-                  Math.min(bounds[0][0], bounds[1][0]),
-                  Math.max(bounds[0][0], bounds[1][0]),
-                  Math.min(bounds[0][1], bounds[1][1]),
-                  Math.max(bounds[0][1], bounds[1][1]),
-              ]
-            : []),
-    ]);
+    const rows = (
+        await db.query(query, [
+            userId,
+            ...(search ? [`%${search}%`] : []),
+            ...(bounds
+                ? [
+                      Math.min(bounds[0][0], bounds[1][0]),
+                      Math.max(bounds[0][0], bounds[1][0]),
+                      Math.min(bounds[0][1], bounds[1][1]),
+                      Math.max(bounds[0][1], bounds[1][1]),
+                  ]
+                : []),
+        ])
+    ).rows as Peak[];
 
     return rows;
 };

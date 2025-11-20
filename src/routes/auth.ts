@@ -20,12 +20,7 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
             name: string;
             email: string | null;
             pic: string | null;
-            stravaCreds: {
-                accessToken: string;
-                refreshToken: string;
-                providerAccountId: string;
-                expiresAt: number;
-            };
+            stravaCreds: StravaCreds;
         };
     }>("/signup", async (request, reply) => {
         const { id, name, email, pic, stravaCreds } = request.body;
@@ -39,7 +34,7 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
             id,
             name,
             email,
-            token: stravaCreds.accessToken,
+            token: stravaCreds.access_token,
         });
 
         reply.code(200).send({ user: newUser });

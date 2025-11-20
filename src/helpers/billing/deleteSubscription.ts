@@ -1,12 +1,13 @@
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const deleteSubscription = async (stripeUserId: string | null) => {
     if (!stripeUserId) {
         return;
     }
 
-    await db.execute(
-        `UPDATE User SET isSubscribed = 0 WHERE stripeUserId = ?`,
+    const db = await getCloudSqlConnection();
+    await db.query(
+        `UPDATE users SET is_subscribed = false WHERE stripe_user_id = $1`,
         [stripeUserId]
     );
 };

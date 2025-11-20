@@ -1,7 +1,5 @@
-import { RowDataPacket } from "mysql2";
 import User from "../../typeDefs/User";
-import db from "../getCloudSqlConnection";
-import getStravaAccessToken from "../getStravaAccessToken";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 import { Client } from "@googlemaps/google-maps-services-js";
 import getUserHistoricalData from "../historical-data/getUserHistoricalData";
 
@@ -18,6 +16,7 @@ const addUserData = async ({
     email: string | null;
     token: string;
 }): Promise<User | null> => {
+    const db = await getCloudSqlConnection();
     const stravaRes = await fetch("https://www.strava.com/api/v3/athlete", {
         headers: {
             Authorization: `Bearer ${token}`,
@@ -44,18 +43,17 @@ const addUserData = async ({
         const lat = geocodeRes.data.results[0].geometry.location.lat;
         const lng = geocodeRes.data.results[0].geometry.location.lng;
 
-        await db.execute(
-            `UPDATE User SET
-            name = ?,
-            email = ?,
-            pic = ?,
-            city = ?,
-            state = ?,
-            country = ?,
-            lat = ?,
-            \`long\` = ?,
-            units = ?
-            WHERE id = ?;
+        await db.query(
+            `UPDATE users SET
+            name = $1,
+            email = $2,
+            pic = $3,
+            city = $4,
+            state = $5,
+            country = $6,
+            location_coords = ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography,
+            units = $9
+            WHERE id = $10;
             `,
             [
                 name,
@@ -64,8 +62,8 @@ const addUserData = async ({
                 city ?? null,
                 state ?? null,
                 country ?? null,
-                lat ?? null,
                 lng ?? null,
+                lat ?? null,
                 units,
                 id,
             ]
@@ -83,24 +81,23 @@ const addUserData = async ({
             city,
             state,
             country,
-            lat,
-            long: lng,
+            location_coords: lng && lat ? [lng, lat] : null,
             units,
-            updateDescription: true,
-            isSubscribed: false,
-            isLifetimeFree: false,
-            historicalDataProcessed: false,
+            update_description: true,
+            is_subscribed: false,
+            is_lifetime_free: false,
+            historical_data_processed: false,
         };
 
         return newUser;
     } else {
-        await db.execute(
-            `UPDATE User SET
-            name = ?,
-            email = ?,
-            pic = ?,
-            units = ?
-            WHERE id = ?;
+        await db.query(
+            `UPDATE users SET
+            name = $1,
+            email = $2,
+            pic = $3,
+            units = $4
+            WHERE id = $5;
             `,
             [name, email, profile_medium ?? null, units, id]
         );
@@ -114,11 +111,11 @@ const addUserData = async ({
             name,
             email: email ?? undefined,
             pic: profile_medium ?? null,
-            updateDescription: true,
+            update_description: true,
             units,
-            isSubscribed: false,
-            isLifetimeFree: false,
-            historicalDataProcessed: false,
+            is_subscribed: false,
+            is_lifetime_free: false,
+            historical_data_processed: false,
         };
 
         return newUser;

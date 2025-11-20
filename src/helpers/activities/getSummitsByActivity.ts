@@ -1,17 +1,17 @@
-import { RowDataPacket } from "mysql2";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getSummitsByActivity = async (activityId: string) => {
-    const [rows] = await db.query<
-        ({ id: string; timestamp: string } & RowDataPacket)[]
-    >(
-        `SELECT ap.id, ap.\`timestamp\` FROM Activity a LEFT JOIN (
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM ActivityPeak
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(
+            `SELECT ap.id, ap.timestamp FROM activities a LEFT JOIN (
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM activities_peaks
             UNION
-            SELECT id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
-        ) ap ON a.id = ap.activityId WHERE a.id = ?`,
-        [activityId]
-    );
+            SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+        ) ap ON a.id = ap.activity_id WHERE a.id = $1`,
+            [activityId]
+        )
+    ).rows as { id: string; timestamp: string }[];
 
     return rows;
 };

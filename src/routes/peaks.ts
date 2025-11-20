@@ -14,7 +14,6 @@ import addManualPeakSummit from "../helpers/peaks/addManualPeakSummit";
 import getRecentSummits from "../helpers/peaks/getRecentSummits";
 import searchNearestPeaks from "../helpers/peaks/searchNearestPeaks";
 import getAscentDetails from "../helpers/peaks/getAscentDetails";
-import PeakSummit from "../typeDefs/PeakSummit";
 import AscentDetail from "../typeDefs/AscentDetail";
 import updateAscent from "../helpers/peaks/updateAscent";
 import getAscentOwnerId from "../helpers/peaks/getAscentOwnerId";
@@ -22,6 +21,8 @@ import deleteAscent from "../helpers/peaks/deleteAscent";
 import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 import searchPeaks from "../helpers/peaks/searchPeaks";
 import Peak from "../typeDefs/Peak";
+import getChallengesByPeak from "../helpers/challenges/getChallengesByPeak";
+import getPublicSummitsByPeak from "../helpers/peaks/getPublicSummitsByPeak";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -131,6 +132,14 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
 
         const peak = await getPeakById(peakId, userId);
 
+        if (!peak) {
+            reply.code(404).send({ message: "Peak not found" });
+            return;
+        }
+
+        const publicSummits = await getPublicSummitsByPeak(peakId);
+        const challenges = await getChallengesByPeak(peakId, userId);
+
         if (userId) {
             const activities = await getActivityByPeak(peakId, userId, true);
             const summits = await getSummitsByPeak(peakId, userId);
@@ -139,35 +148,14 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                     ...peak,
                     ascents: summits,
                 } as Peak,
+                publicSummits,
                 activities,
+                challenges,
             });
         } else {
-            reply.code(200).send({ peak, activities: [] });
+            reply.code(200).send({ peak, publicSummits, challenges });
         }
     });
-
-    // NOT USED
-    // fastify.get<{
-    //     Params: {
-    //         id: string;
-    //     };
-    //     Querystring: {
-    //         userId: string;
-    //     };
-    // }>("/peaks/details/:id", async function (request, reply) {
-    //     const peakId = request.params.id;
-    //     const userId = request.query.userId;
-
-    //     const peak = await getPeakById(peakId, userId);
-
-    //     if (peak?.summits && peak.summits > 0) {
-    //         const activities = await getActivityByPeak(peakId, userId, true);
-    //         const summits = await getSummitsByPeak(peakId, userId);
-    //         reply.code(200).send({ peak, activities, summits });
-    //     } else {
-    //         reply.code(200).send({ peak, activities: [], summits: [] });
-    //     }
-    // });
 
     fastify.get<{
         Params: {
@@ -317,16 +305,16 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             return;
         }
 
-        const peak = await getPeakById(ascent.peakId, userId);
+        const peak = await getPeakById(ascent.peak_id, userId);
 
         if (!peak) {
             reply.code(404).send({ message: "Peak not found" });
             return;
         }
 
-        const otherAscents = await getSummitsByPeak(ascent.peakId, userId);
+        const otherAscents = await getSummitsByPeak(ascent.peak_id, userId);
 
-        const peakSummit: PeakSummit = {
+        const peakSummit: Peak = {
             ...peak,
             ascents: otherAscents,
         };

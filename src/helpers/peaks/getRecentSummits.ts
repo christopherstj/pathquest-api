@@ -1,26 +1,28 @@
-import { RowDataPacket } from "mysql2";
 import ManualPeakSummit from "../../typeDefs/ManualPeakSummit";
 import Peak from "../../typeDefs/Peak";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getRecentSummits = async (
     userId: string
 ): Promise<(Peak & ManualPeakSummit)[]> => {
-    const [rows] = await db.query<(Peak & ManualPeakSummit & RowDataPacket)[]>(
-        `
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(
+            `
         SELECT ap.*, p.* FROM (
-            SELECT a1.userId, ap1.id, ap1.\`timestamp\`, ap1.activityId, ap1.peakId, ap1.notes, ap1.isPublic FROM ActivityPeak ap1
-            LEFT JOIN Activity a1 ON ap1.activityId = a1.id
+            SELECT a1.user_id, ap1.id, ap1.timestamp, ap1.activity_id, ap1.peak_id, ap1.notes, ap1.is_public FROM activities_peaks ap1
+            LEFT JOIN activities a1 ON ap1.activity_id = a1.id
             UNION
-            SELECT userId, id, \`timestamp\`, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
         ) ap
-        LEFT JOIN Peak p ON ap.peakId = p.Id
-        WHERE ap.userId = ?
-        ORDER BY ap.\`timestamp\` DESC
+        LEFT JOIN peaks p ON ap.peak_id = p.id
+        WHERE ap.user_id = $1
+        ORDER BY ap.timestamp DESC
         LIMIT 100;    
     `,
-        [userId]
-    );
+            [userId]
+        )
+    ).rows as (Peak & ManualPeakSummit)[];
 
     return rows;
 };

@@ -1,29 +1,29 @@
-import { RowDataPacket } from "mysql2";
 import ManualPeakSummit from "../../typeDefs/ManualPeakSummit";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const addManualPeakSummit = async (newEntry: ManualPeakSummit) => {
-    await db.execute<RowDataPacket[]>(
+    const db = await getCloudSqlConnection();
+    await db.query(
         `
-        INSERT INTO UserPeakManual
-        (\`id\`,
-        \`userId\`,
-        \`peakId\`,
-        \`notes\`,
-        \`activityId\`,
-        \`isPublic\`,
-        \`timestamp\`,
-        \`timezone\`)
+        INSERT INTO user_peak_manual
+        (id,
+        user_id,
+        peak_id,
+        notes,
+        activity_id,
+        is_public,
+        timestamp,
+        timezone)
         VALUES
-        (?,?,?,?,?,?,?,?);
+        ($1,$2,$3,$4,$5,$6,$7,$8);
     `,
         [
             newEntry.id,
-            newEntry.userId,
-            newEntry.peakId,
+            newEntry.user_id,
+            newEntry.peak_id,
             newEntry.notes ?? null,
-            newEntry.activityId ?? null,
-            newEntry.isPublic,
+            newEntry.activity_id ?? null,
+            newEntry.is_public,
             newEntry.timestamp,
             newEntry.timezone,
         ]

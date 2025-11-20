@@ -1,21 +1,22 @@
-import { RowDataPacket } from "mysql2";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getIsUserSubscribed = async (userId: string): Promise<boolean> => {
-    const query = `SELECT isSubscribed = 1 isSubscribed,
-        isLifetimeFree = 1 isLifetimeFree FROM \`User\` WHERE id = ?;`;
+    const db = await getCloudSqlConnection();
+    const query = `SELECT is_subscribed,
+        is_lifetime_free FROM users WHERE id = $1;`;
 
-    const [rows] = await db.execute<
-        ({ isSubscribed: boolean; isLifetimeFree: boolean } & RowDataPacket)[]
-    >(query, [userId]);
+    const rows = (await db.query(query, [userId])).rows as {
+        is_subscribed: boolean;
+        is_lifetime_free: boolean;
+    }[];
 
     if (rows.length === 0) {
         return false;
     }
 
-    const { isSubscribed, isLifetimeFree } = rows[0];
+    const { is_subscribed, is_lifetime_free } = rows[0];
 
-    return isSubscribed || isLifetimeFree;
+    return is_subscribed || is_lifetime_free;
 };
 
 export default getIsUserSubscribed;

@@ -1,51 +1,51 @@
-import { RowDataPacket } from "mysql2";
-import PeakSummit from "../../typeDefs/PeakSummit";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
-import getUserPrivacy from "../user/getUserPrivacy";
 
 const getPeakSummitsByUser = async (
     userId: string,
     includePrivate: boolean = false
-): Promise<PeakSummit[]> => {
-    const [rows] = await db.query<(Peak & RowDataPacket)[]>(
-        `
+): Promise<Peak[]> => {
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query<Peak>(
+            `
         SELECT p.*
         FROM (
-            SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-            LEFT JOIN Activity a ON a.id = ap.activityId
+            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+            LEFT JOIN activities a ON a.id = ap.activity_id
             UNION
-            SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
         ) ap 
-        LEFT JOIN Peak p ON ap.peakId = p.Id 
-        WHERE ap.userId = ? AND (ap.isPublic = 1 OR ?)
-        GROUP BY p.\`Name\`, p.Id, p.Lat, p.\`Long\`;
+        LEFT JOIN peaks p ON ap.peak_id = p.id 
+        WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
+        GROUP BY p.name, p.id, p.lat, p.long;
     `,
-        [userId, includePrivate]
-    );
+            [userId, includePrivate]
+        )
+    ).rows;
 
-    const promises = rows.map(async (row): Promise<PeakSummit> => {
-        const [ascents] = await db.query<
-            ({
+    const promises = rows.map(async (row): Promise<Peak> => {
+        const ascents = (
+            await db.query<{
                 id: string;
                 timestamp: string;
-                activityId: string;
-            } & RowDataPacket)[]
-        >(
-            `
-            SELECT ap.id, \`timestamp\`, activityId
+                activity_id: string;
+            }>(
+                `
+            SELECT ap.id, timestamp, activity_id
             FROM (
-                SELECT a.userId, ap.id, ap.timestamp, ap.activityId, ap.peakId, ap.notes, ap.isPublic FROM ActivityPeak ap
-                LEFT JOIN Activity a ON a.id = ap.activityId
+                SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                LEFT JOIN activities a ON a.id = ap.activity_id
                 UNION
-                SELECT userId, id, timestamp, activityId, peakId, notes, isPublic FROM UserPeakManual
+                SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
             ) ap
-            WHERE peakId = ? 
-            AND (ap.isPublic = 1 OR ?)
-            AND ap.userId = ?
+            WHERE peak_id = $1 
+            AND (ap.is_public = true OR $2)
+            AND ap.user_id = $3
         `,
-            [row.Id, includePrivate, userId]
-        );
+                [row.id, includePrivate, userId]
+            )
+        ).rows;
 
         return {
             ...row,

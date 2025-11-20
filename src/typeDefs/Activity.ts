@@ -1,17 +1,17 @@
 export default interface Activity {
-    name?: string;
+    title?: string;
     id: string;
-    userId: string;
-    startLat: number;
-    startLong: number;
+    user_id: string;
+    start_coords: [number, number];
     distance: number;
     coords: [number, number][];
-    vertProfile?: number[];
-    distanceStream?: number[];
-    timeStream?: number[];
-    startTime: number;
+    vert_profile?: number[];
+    distance_stream?: number[];
+    time_stream?: number[];
+    start_time: string;
     sport?: string;
     timezone?: string;
     gain?: number;
     reprocessing: boolean;
+    peak_summits?: number;
 }

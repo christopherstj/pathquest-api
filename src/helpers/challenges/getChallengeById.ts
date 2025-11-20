@@ -1,12 +1,11 @@
-import { RowDataPacket } from "mysql2";
 import Challenge from "../../typeDefs/Challenge";
-import db from "../getCloudSqlConnection";
+import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getChallengeById = async (id: number): Promise<Challenge> => {
-    const [rows] = await db.query<(Challenge & RowDataPacket)[]>(
-        `SELECT * FROM Challenge WHERE id = ? LIMIT 1`,
-        [id]
-    );
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(`SELECT * FROM challenges WHERE id = $1 LIMIT 1`, [id])
+    ).rows as Challenge[];
 
     return rows[0];
 };

@@ -1,7 +1,7 @@
 import StravaTokenResponse from "../typeDefs/StravaTokenResponse";
 import { ResultSetHeader } from "mysql2/promise";
 import updateStravaCreds from "./updateStravaCreds";
-import db from "./getCloudSqlConnection";
+import getCloudSqlConnection from "./getCloudSqlConnection";
 import { StravaCredsDb } from "../typeDefs/StravaCredsDb";
 
 const clientId = process.env.STRAVA_CLIENT_ID ?? "";
@@ -23,19 +23,23 @@ const getNewToken = async (refreshToken: string, userId: string) => {
     const data: StravaTokenResponse = await response.json();
 
     await updateStravaCreds({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: data.expires_at,
-        providerAccountId: userId,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
+        provider_account_id: userId,
     });
 
     return data.access_token;
 };
 
 const getStravaAccessToken = async (userId: string) => {
-    const [rows] = await db.execute<(StravaCredsDb & ResultSetHeader)[]>(
-        `SELECT * FROM StravaToken WHERE userId = ${userId} LIMIT 1`
-    );
+    const db = await getCloudSqlConnection();
+    const rows = (
+        await db.query(
+            `SELECT * FROM strava_tokens WHERE user_id = $1 LIMIT 1`,
+            [userId]
+        )
+    ).rows as (StravaCredsDb & ResultSetHeader)[];
 
     if (rows.length === 0) {
         console.error("No strava creds found for user", userId);
@@ -43,19 +47,19 @@ const getStravaAccessToken = async (userId: string) => {
     } else {
         const creds = rows[0];
 
-        const { accessToken, refreshToken, accessTokenExpiresAt } = creds;
+        const { access_token, refresh_token, access_token_expires_at } = creds;
 
-        if (!refreshToken || refreshToken === "") {
+        if (!refresh_token || refresh_token === "") {
             return null;
-        } else if (!accessToken || accessToken === "") {
-            return await getNewToken(refreshToken, userId);
+        } else if (!access_token || access_token === "") {
+            return await getNewToken(refresh_token, userId);
         } else if (
-            accessTokenExpiresAt &&
-            accessTokenExpiresAt * 1000 < new Date().getTime()
+            access_token_expires_at &&
+            access_token_expires_at * 1000 < new Date().getTime()
         ) {
-            return await getNewToken(refreshToken, userId);
+            return await getNewToken(refresh_token, userId);
         } else {
-            return accessToken;
+            return access_token;
         }
     }
 };

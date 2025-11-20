@@ -1,19 +1,20 @@
 export default interface Peak {
-    Id: string;
-    Name: string;
-    Lat: number;
-    Long: number;
-    Altitude?: number;
-    County?: string;
-    State?: string;
-    Country?: string;
-    isFavorited?: boolean;
+    id: string;
+    name: string;
+    location_coords?: [number, number];
+    elevation?: number;
+    county?: string;
+    state?: string;
+    country?: string;
+    is_favorited?: boolean;
+    distance?: number;
     summits?: number;
-    publicSummits?: number;
+    public_summits?: number;
+    num_challenges?: number;
     ascents?: {
         id: string;
         timestamp: string;
-        activityId: string;
+        activity_id: string;
         notes?: string;
     }[];
 }

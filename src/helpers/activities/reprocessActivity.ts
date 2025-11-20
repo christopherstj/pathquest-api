@@ -37,11 +37,11 @@ const reprocessActivity = async (activityId: number, userId: string) => {
         };
 
         const message: QueueMessage = {
-            userId,
+            user_id: userId,
             action: "create",
             created: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-            jsonData: JSON.stringify(newEvent),
-            isWebhook: false,
+            json_data: JSON.stringify(newEvent),
+            is_webhook: false,
         };
 
         const processNow = await checkRateLimit();

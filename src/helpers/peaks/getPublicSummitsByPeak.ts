@@ -2,7 +2,7 @@ import Summit from "../../typeDefs/Summit";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import convertPgNumbers from "../convertPgNumbers";
 
-const getSummitsByPeak = async (peakId: string, userId: string) => {
+const getPublicSummitsByPeak = async (peakId: string) => {
     const db = await getCloudSqlConnection();
     const rows = (
         await db.query(
@@ -15,13 +15,13 @@ const getSummitsByPeak = async (peakId: string, userId: string) => {
                 SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, temperature, precipitation, weather_code, cloud_cover, wind_speed, wind_direction, humidity FROM user_peak_manual
             ) ap
             WHERE peak_id = $1
-            AND ap.user_id = $2
+            AND ap.is_public = TRUE
         `,
-            [peakId, userId]
+            [peakId]
         )
     ).rows as Summit[];
 
     return convertPgNumbers(rows);
 };
 
-export default getSummitsByPeak;
+export default getPublicSummitsByPeak;

@@ -14,6 +14,7 @@ const fastify = Fastify({
     logger: true,
 });
 
+// UNUSED ROUTE - Consider removing
 fastify.get<{
     Querystring: {
         userId: string;

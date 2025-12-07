@@ -19,6 +19,7 @@ const getPublicUserProfile = async (userId: string) => {
             await db.query<User>(
                 `SELECT id, 
                 name, 
+                email,
                 pic,
                 city,
                 state,

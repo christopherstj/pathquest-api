@@ -1,3 +1,4 @@
+// UNUSED - Not imported in any route files (used in backend workers)
 import getCloudSqlConnection from "./getCloudSqlConnection";
 import StravaRateLimit from "../typeDefs/StravaRateLimit";
 

@@ -1,3 +1,4 @@
+// UNUSED - Not imported in API routes (used in backend activity-processor worker)
 import QueueMessage from "../typeDefs/QueueMessage";
 import getCloudSqlConnection from "./getCloudSqlConnection";
 

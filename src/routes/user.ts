@@ -4,6 +4,7 @@ import getPublicUserProfile from "../helpers/user/getPublicUserProfile";
 import getIsUserSubscribed from "../helpers/user/getIsUserSunscribed";
 import deleteUser from "../helpers/user/deleteUser";
 import getActivitiesProcessing from "../helpers/activities/getActivitiesProcessing";
+import updateUser from "../helpers/user/updateUser";
 
 export default async function user(
     fastify: FastifyInstance,
@@ -110,6 +111,29 @@ export default async function user(
                 .send({ message: `User ${userId} deleted successfully` });
         } catch (error) {
             reply.code(500).send("Error deleting user");
+        }
+    });
+
+    fastify.put<{
+        Params: {
+            userId: string;
+        };
+        Body: {
+            name?: string;
+            email?: string;
+            pic?: string;
+        };
+    }>("/user/:userId", async (request, reply) => {
+        const { userId } = request.params;
+        const { name, email, pic } = request.body;
+
+        try {
+            await updateUser(userId, { name, email, pic });
+            reply
+                .code(200)
+                .send({ message: `User ${userId} updated successfully` });
+        } catch (error) {
+            reply.code(500).send("Error updating user");
         }
     });
 

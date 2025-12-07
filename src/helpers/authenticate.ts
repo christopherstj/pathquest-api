@@ -1,3 +1,4 @@
+// UNUSED - Not used as middleware in any routes
 import { FastifyReply, FastifyRequest } from "fastify";
 import { decode } from "next-auth/jwt";
 

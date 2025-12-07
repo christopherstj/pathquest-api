@@ -1,3 +1,4 @@
+// UNUSED - Not imported in any route files
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getSummitsByActivity = async (activityId: string) => {

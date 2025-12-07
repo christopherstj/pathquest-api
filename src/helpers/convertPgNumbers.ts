@@ -1,3 +1,4 @@
+// UNUSED - Not imported anywhere
 /**
  * Converts string representations of numbers from PostgreSQL query results back to numbers.
  * PostgreSQL returns bigint/numeric types as strings to preserve precision.

@@ -1,3 +1,4 @@
+// UNUSED - Not imported in any route files
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import Peak from "../../typeDefs/Peak";
 

@@ -32,7 +32,7 @@ const getAllChallenges = async (
         }
         if (bounds) {
             clauses.push(
-                `c.center_lat BETWEEN $${paramIndex} AND $${paramIndex + 1}`
+                `ST_Y(c.location_coords::geometry) BETWEEN $${paramIndex} AND $${paramIndex + 1}`
             );
             params.push(
                 Math.min(bounds.northWest.lat, bounds.southEast.lat),
@@ -41,7 +41,7 @@ const getAllChallenges = async (
             paramIndex += 2;
 
             clauses.push(
-                `c.center_long BETWEEN $${paramIndex} AND $${paramIndex + 1}`
+                `ST_X(c.location_coords::geometry) BETWEEN $${paramIndex} AND $${paramIndex + 1}`
             );
             params.push(
                 Math.min(bounds.northWest.lng, bounds.southEast.lng),
@@ -63,27 +63,29 @@ const getAllChallenges = async (
         const clauses = [] as string[];
 
         if (types.includes("completed")) {
-            clauses.push("completed = total");
+            clauses.push("COUNT(ap2.summitted) = COUNT(p.id)");
         }
         if (types.includes("in-progress")) {
-            clauses.push("completed < total AND completed > 0");
+            clauses.push(
+                "COUNT(ap2.summitted) < COUNT(p.id) AND COUNT(ap2.summitted) > 0"
+            );
         }
         if (types.includes("not-started")) {
-            clauses.push("completed = 0");
+            clauses.push("COUNT(ap2.summitted) = 0");
         }
 
         return clauses.length > 0 ? `HAVING ${clauses.join(" OR ")}` : "";
     };
 
     const query = `
-        SELECT c.id, c.name, c.center_lat, c.center_long, c.region, COUNT(p.id) AS total, COUNT(ap2.summitted) AS completed 
+        SELECT c.id, c.name, ST_Y(c.location_coords::geometry) as center_lat, ST_X(c.location_coords::geometry) as center_long, c.region, COUNT(p.id) AS total, COUNT(ap2.summitted) AS completed 
         FROM challenges c 
         ${
             favoritesOnly
                 ? "LEFT JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id"
                 : ""
         }
-        LEFT JOIN peak_challenge pc ON pc.challenge_id = c.id 
+        LEFT JOIN peaks_challenges pc ON pc.challenge_id = c.id 
         LEFT JOIN peaks p ON pc.peak_id = p.id
         LEFT JOIN 
             (
@@ -97,7 +99,7 @@ const getAllChallenges = async (
                 GROUP BY ap.peak_id
             ) ap2 ON p.id = ap2.peak_id
         ${getWhereClause()}
-        GROUP BY c.id, c.name, c.center_lat, c.center_long
+        GROUP BY c.id, c.name, c.location_coords, c.region
         ${getHavingClauses()}
     `;
 

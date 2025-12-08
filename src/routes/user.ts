@@ -5,48 +5,34 @@ import getIsUserSubscribed from "../helpers/user/getIsUserSunscribed";
 import deleteUser from "../helpers/user/deleteUser";
 import getActivitiesProcessing from "../helpers/activities/getActivitiesProcessing";
 import updateUser from "../helpers/user/updateUser";
+import { ensureOwner } from "../helpers/authz";
 
 export default async function user(
     fastify: FastifyInstance,
     _: any,
     done: any
 ) {
-    // NOT USED - remove?
-    fastify.post<{
-        Body: {
-            id: string;
-        };
-    }>("/user", async (request, reply) => {
-        const user = await getUser(request.body.id);
-
-        if (!user) {
-            reply.code(200).send({ userFound: false });
-        } else {
-            reply.code(200).send({ userFound: true, user });
-        }
-    });
-
     fastify.get<{
         Params: {
             userId: string;
         };
-        Querystring: {
-            requestingUserId?: string;
-        };
-    }>("/user/:userId", async (request, reply) => {
-        const { userId } = request.params as { userId: string };
-        const requestingUserId = request.query.requestingUserId ?? "";
+    }>(
+        "/:userId",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params as { userId: string };
+            const includePrivate = request.user?.id === userId;
 
-        const includePrivate = requestingUserId === userId;
-
-        if (includePrivate) {
-            const user = await getUser(userId);
-            if (!user) {
-                reply.code(404).send("User not found");
-            } else {
-                reply.code(200).send(user);
+            if (includePrivate) {
+                const user = await getUser(userId);
+                if (!user) {
+                    reply.code(404).send("User not found");
+                } else {
+                    reply.code(200).send(user);
+                }
+                return;
             }
-        } else {
+
             const profile = await getPublicUserProfile(userId);
 
             if (!profile) {
@@ -55,64 +41,78 @@ export default async function user(
                 reply.code(200).send(profile);
             }
         }
-    });
+    );
 
     fastify.get<{
         Params: {
             userId: string;
         };
-        Querystring: {
-            requestingUserId?: string;
-        };
-    }>("/user/:userId/activities-processing", async (request, reply) => {
-        const { userId } = request.params as { userId: string };
-        const requestingUserId = request.query.requestingUserId;
+    }>(
+        "/:userId/activities-processing",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { userId } = request.params as { userId: string };
 
-        const allowed = requestingUserId === userId;
+            if (!ensureOwner(request, reply, userId)) {
+                return;
+            }
 
-        if (allowed) {
             const numProcessing = await getActivitiesProcessing(userId);
             if (numProcessing === undefined) {
                 reply.code(404).send("User not found");
             } else {
                 reply.code(200).send({ numProcessing });
             }
-        } else {
-            reply.code(403).send("Forbidden");
         }
-    });
+    );
 
     fastify.get<{
         Params: {
             userId: string;
         };
-    }>("/user/:userId/is-subscribed", async (request, reply) => {
-        const { userId } = request.params;
+    }>(
+        "/:userId/is-subscribed",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { userId } = request.params;
 
-        try {
-            const isSubscribed = await getIsUserSubscribed(userId);
-            reply.code(200).send({ isSubscribed });
-        } catch (error) {
-            reply.code(500).send("Error checking subscription status");
+            if (!ensureOwner(request, reply, userId)) {
+                return;
+            }
+
+            try {
+                const isSubscribed = await getIsUserSubscribed(userId);
+                reply.code(200).send({ isSubscribed });
+            } catch (error) {
+                reply.code(500).send("Error checking subscription status");
+            }
         }
-    });
+    );
 
     fastify.delete<{
         Params: {
             userId: string;
         };
-    }>("/user/:userId", async (request, reply) => {
-        const { userId } = request.params;
+    }>(
+        "/:userId",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { userId } = request.params;
 
-        try {
-            await deleteUser(userId);
-            reply
-                .code(200)
-                .send({ message: `User ${userId} deleted successfully` });
-        } catch (error) {
-            reply.code(500).send("Error deleting user");
+            if (!ensureOwner(request, reply, userId)) {
+                return;
+            }
+
+            try {
+                await deleteUser(userId);
+                reply
+                    .code(200)
+                    .send({ message: `User ${userId} deleted successfully` });
+            } catch (error) {
+                reply.code(500).send("Error deleting user");
+            }
         }
-    });
+    );
 
     fastify.put<{
         Params: {
@@ -123,19 +123,27 @@ export default async function user(
             email?: string;
             pic?: string;
         };
-    }>("/user/:userId", async (request, reply) => {
-        const { userId } = request.params;
-        const { name, email, pic } = request.body;
+    }>(
+        "/:userId",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const { name, email, pic } = request.body;
 
-        try {
-            await updateUser(userId, { name, email, pic });
-            reply
-                .code(200)
-                .send({ message: `User ${userId} updated successfully` });
-        } catch (error) {
-            reply.code(500).send("Error updating user");
+            if (!ensureOwner(request, reply, userId)) {
+                return;
+            }
+
+            try {
+                await updateUser(userId, { name, email, pic });
+                reply
+                    .code(200)
+                    .send({ message: `User ${userId} updated successfully` });
+            } catch (error) {
+                reply.code(500).send("Error updating user");
+            }
         }
-    });
+    );
 
     done();
 }

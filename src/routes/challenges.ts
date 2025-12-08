@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify";
 import getUncompletedChallenges from "../helpers/challenges/getUncompletedChallenges";
 import getChallenges from "../helpers/challenges/getChallenges";
-import getChallengeById from "../helpers/challenges/getChallengeById";
 import getPeaksByChallenge from "../helpers/challenges/getPeaksByChallenge";
 import getMostRecentSummitByPeak from "../helpers/peaks/getMostRecentSummitByPeak";
 import getAllChallenges from "../helpers/challenges/getAllChallenges";
@@ -11,19 +10,29 @@ import addChallengeFavorite from "../helpers/challenges/addChallengeFavorite";
 import deleteChallengeFavorite from "../helpers/challenges/deleteChallengeFavorite";
 import updateChallengePrivacy from "../helpers/challenges/updateChallengePrivacy";
 import getChallengeByUserAndId from "../helpers/challenges/getChallengeByUserAndId";
+import { ensureOwner } from "../helpers/authz";
 
 const challenges = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
         Body: {
             userId: string;
         };
-    }>("/challenges/incomplete", async function (request, reply) {
-        const userId = request.body.userId;
+    }>(
+        "/incomplete",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
 
-        const challenges = await getUncompletedChallenges(userId);
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
 
-        reply.code(200).send(challenges);
-    });
+            const challenges = await getUncompletedChallenges(userId);
+
+            reply.code(200).send(challenges);
+        }
+    );
 
     fastify.get<{
         Querystring: {
@@ -31,7 +40,7 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             perPage?: string;
             search?: string;
         };
-    }>("/challenges", async function (request, reply) {
+    }>("/", async function (request, reply) {
         const page = parseInt(request.query.page ?? "1");
         const perPage = parseInt(request.query.perPage ?? "25");
         const search = request.query.search;
@@ -41,35 +50,35 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
     });
 
     fastify.get<{
-        Querystring: {
-            userId: string;
-        };
         Params: {
             challengeId: string;
         };
-    }>("/challenges/:challengeId/details", async function (request, reply) {
-        const challengeId = parseInt(request.params.challengeId);
-        const userId = request.query.userId;
+    }>(
+        "/:challengeId/details",
+        { onRequest: [fastify.optionalAuth] },
+        async function (request, reply) {
+            const challengeId = parseInt(request.params.challengeId);
+            const userId = request.user?.id ?? "";
 
-        const challenge = await getChallengeByUserAndId(challengeId, userId);
+            const challenge = await getChallengeByUserAndId(challengeId, userId);
 
-        const peaks = await getPeaksByChallenge(challengeId, userId);
+            const peaks = await getPeaksByChallenge(challengeId, userId);
 
-        if (peaks) {
-            const data = await getMostRecentSummitByPeak(peaks, userId);
+            if (peaks) {
+                const data = await getMostRecentSummitByPeak(peaks, userId);
 
-            reply.code(200).send({
-                challenge,
-                ...data,
-            });
-        } else {
-            reply.code(200).send();
+                reply.code(200).send({
+                    challenge,
+                    ...data,
+                });
+            } else {
+                reply.code(200).send();
+            }
         }
-    });
+    );
 
     fastify.get<{
         Querystring: {
-            userId: string;
             type: string;
             northWestLat?: string;
             northWestLng?: string;
@@ -78,100 +87,133 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             search?: string;
             favoritesOnly?: string;
         };
-    }>("/challenges/search", async function (request, reply) {
-        const {
-            userId,
-            type,
-            northWestLat,
-            northWestLng,
-            southEastLat,
-            southEastLng,
-            search,
-            favoritesOnly,
-        } = request.query;
+    }>(
+        "/search",
+        { onRequest: [fastify.optionalAuth] },
+        async function (request, reply) {
+            const {
+                type,
+                northWestLat,
+                northWestLng,
+                southEastLat,
+                southEastLng,
+                search,
+                favoritesOnly,
+            } = request.query;
 
-        const bounds =
-            northWestLat && northWestLng && southEastLat && southEastLng
-                ? {
-                      northWest: {
-                          lat: parseFloat(northWestLat),
-                          lng: parseFloat(northWestLng),
-                      },
-                      southEast: {
-                          lat: parseFloat(southEastLat),
-                          lng: parseFloat(southEastLng),
-                      },
-                  }
-                : undefined;
+            const userId = request.user?.id ?? "";
 
-        const types = type.split(",") as (
-            | "completed"
-            | "in-progress"
-            | "not-started"
-        )[];
+            const bounds =
+                northWestLat && northWestLng && southEastLat && southEastLng
+                    ? {
+                          northWest: {
+                              lat: parseFloat(northWestLat),
+                              lng: parseFloat(northWestLng),
+                          },
+                          southEast: {
+                              lat: parseFloat(southEastLat),
+                              lng: parseFloat(southEastLng),
+                          },
+                      }
+                    : undefined;
 
-        const challenges = await getAllChallenges(
-            userId,
-            types,
-            bounds,
-            search,
-            !!favoritesOnly && favoritesOnly === "true"
-        );
-        reply.code(200).send(challenges);
-    });
+            const types = type.split(",") as (
+                | "completed"
+                | "in-progress"
+                | "not-started"
+            )[];
+
+            const onlyFavorites = favoritesOnly === "true";
+            if (onlyFavorites && !userId) {
+                reply.code(401).send({ message: "Auth required for favorites" });
+                return;
+            }
+
+            const challenges = await getAllChallenges(
+                userId,
+                types,
+                bounds,
+                search,
+                onlyFavorites
+            );
+            reply.code(200).send(challenges);
+        }
+    );
 
     fastify.post<{
         Body: {
-            userId: string;
             challengeId: string;
         };
-    }>("/challenges/favorite", async (request, reply) => {
-        const { userId, challengeId } = request.body;
+    }>(
+        "/favorite",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { challengeId } = request.body;
+            const userId = request.user?.id;
 
-        const privacy = await getUserPrivacy(userId);
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
 
-        if (privacy === null) {
-            reply.code(400).send({
-                message: "User not found",
+            const privacy = await getUserPrivacy(userId);
+
+            if (privacy === null) {
+                reply.code(400).send({
+                    message: "User not found",
+                });
+                return;
+            }
+
+            await addChallengeFavorite({
+                user_id: userId,
+                challenge_id: challengeId,
+                is_public: privacy,
             });
-            return;
+
+            reply.code(200).send();
         }
-
-        await addChallengeFavorite({
-            user_id: userId,
-            challenge_id: challengeId,
-            is_public: privacy,
-        });
-
-        reply.code(200).send();
-    });
+    );
 
     fastify.put<{
         Body: UserChallengeFavorite;
-    }>("/challenges/favorite", async (request, reply) => {
-        const { user_id, challenge_id, is_public } = request.body;
+    }>(
+        "/favorite",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { user_id, challenge_id, is_public } = request.body;
 
-        console.log(
-            `Updating favorite for user ${user_id} and challenge ${challenge_id} to public: ${is_public}`
-        );
+            if (!ensureOwner(request, reply, user_id)) {
+                return;
+            }
 
-        await updateChallengePrivacy(user_id, challenge_id, is_public);
+            await updateChallengePrivacy(user_id, challenge_id, is_public);
 
-        reply.code(200).send();
-    });
+            reply.code(200).send();
+        }
+    );
 
     fastify.delete<{
         Params: {
-            userId: string;
             challengeId: string;
         };
-    }>("/challenges/favorite/:userId/:challengeId", async (request, reply) => {
-        const { userId, challengeId } = request.params;
+    }>(
+        "/favorite/:challengeId",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { challengeId } = request.params;
+            const userId = request.user?.id;
 
-        await deleteChallengeFavorite(userId, challengeId);
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
 
-        reply.code(200).send();
-    });
+            await deleteChallengeFavorite(userId, challengeId);
+
+            reply.code(200).send();
+        }
+    );
 
     done();
 };

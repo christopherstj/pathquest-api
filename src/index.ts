@@ -1,49 +1,28 @@
 import { config } from "dotenv";
 config();
 import Fastify from "fastify";
-import getStravaAccessToken from "./helpers/getStravaAccessToken";
 import historicalData from "./routes/historical-data";
 import peaks from "./routes/peaks";
 import challenges from "./routes/challenges";
-import activites from "./routes/activites";
+import activities from "./routes/activities";
 import auth from "./routes/auth";
 import billing from "./routes/billing";
 import user from "./routes/user";
+import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
     logger: true,
 });
 
-// UNUSED ROUTE - Consider removing
-fastify.get<{
-    Querystring: {
-        userId: string;
-        activityId: string;
-    };
-}>("/", async function (request, reply) {
-    const { userId, activityId } = request.query;
+fastify.register(authPlugin);
 
-    const token = await getStravaAccessToken(userId);
-
-    const activity = await fetch(
-        `https://www.strava.com/api/v3/activities/${activityId}`,
-        {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        }
-    );
-
-    reply.send(await activity.json());
-});
-
-fastify.register(auth);
-fastify.register(user);
-fastify.register(billing);
-fastify.register(historicalData);
-fastify.register(peaks);
-fastify.register(challenges);
-fastify.register(activites);
+fastify.register(auth, { prefix: "/api/auth" });
+fastify.register(user, { prefix: "/api/users" });
+fastify.register(billing, { prefix: "/api/billing" });
+fastify.register(historicalData, { prefix: "/api/historical-data" });
+fastify.register(peaks, { prefix: "/api/peaks" });
+fastify.register(challenges, { prefix: "/api/challenges" });
+fastify.register(activities, { prefix: "/api/activities" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

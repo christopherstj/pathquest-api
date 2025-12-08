@@ -15,264 +15,53 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - Host: 0.0.0.0
 - Logger: Enabled
 
-## Routes
+## Routes (all prefixed with `/api`)
 
-### Root Route (`/`)
-**Status**: UNUSED - Consider removing
-- **Method**: GET
-- **Purpose**: Fetches a Strava activity directly (legacy/test endpoint)
-- **Query Params**: `userId`, `activityId`
-- **Note**: This route is registered but likely not used by the frontend
+### Auth (`/api/auth`)
+- `POST /signup` — Create user + Strava creds (public)
+- `POST /strava-creds` — Update Strava creds (auth, owner)
+- `POST /user-interest` — Collect waitlist emails (public)
 
-### Auth Routes (`/auth`)
-Handles user authentication and Strava credential management.
+### Authentication model
+- The API accepts either a NextAuth JWT (decoded via `JWT_SECRET`) or header-derived identity.
+- Header-based identity (for OIDC edge-to-origin): send `Authorization: Bearer <token>` plus `x-user-id: <userId>`. Optional headers: `x-user-email`, `x-user-name`, `x-user-public: true|false`.
+- Owner checks rely on `request.user.id`. If neither JWT nor headers provide it, private routes return 401/403.
 
-#### `POST /strava-creds`
-- **Purpose**: Updates Strava credentials for a user
-- **Body**: `StravaCreds` object
-- **Helper**: `updateStravaCreds`
+### Users (`/api/users`)
+- `GET /:userId` — Public profile, private when requester matches (optional auth)
+- `GET /:userId/activities-processing` — Owner only
+- `GET /:userId/is-subscribed` — Owner only
+- `PUT /:userId` — Owner only
+- `DELETE /:userId` — Owner only
 
-#### `POST /signup`
-- **Purpose**: Creates a new user account and saves Strava credentials
-- **Body**: User data + Strava credentials
-- **Helpers**: `createUser`, `updateStravaCreds`, `addUserData`
+### Activities (`/api/activities`) — all auth
+- `GET /recent` — Most recent activities (optional `summitsOnly`)
+- `GET /search/nearest` — Nearest activities by lat/lng
+- `GET /search` — Search by bounds/search term
+- `POST /by-peak` — Activities that summitted a peak `{ peakId }`
+- `GET /:activityId` — Details + summits (owner check)
+- `GET /:activityId/coords` — Activity coords (owner check)
+- `DELETE /:activityId` — Delete (owner check)
+- `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check)
 
-#### `POST /user-interest`
-- **Purpose**: Records user interest (email collection for waitlist/marketing)
-- **Body**: `{ email: string }`
-- **Helper**: `addUserInterest`
+### Peaks (`/api/peaks`)
+- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`
+- User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`
+- Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`
+- Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId`
 
-### User Routes (`/user`)
-Manages user profiles and account operations.
+### Challenges (`/api/challenges`)
+- Public: `GET /` (list), `GET /:challengeId/details`
+- Auth-filtered: `GET /search` (supports bounds, search, type, favorites)
+- Auth-owner: `POST /incomplete`
+- Favorites (auth + owner): `POST /favorite`, `PUT /favorite`, `DELETE /favorite/:challengeId`
 
-#### `POST /user`
-**Status**: UNUSED - Marked with comment "NOT USED - remove?"
-- **Purpose**: Checks if a user exists
-- **Body**: `{ id: string }`
-- **Helper**: `getUser`
-- **Note**: This endpoint appears to be unused. The GET endpoint below serves similar functionality.
+### Billing (`/api/billing`) — auth + owner
+- `POST /create-subscription`
+- `POST /delete-subscription`
 
-#### `GET /user/:userId`
-- **Purpose**: Gets user profile (private if requesting user matches, public otherwise)
-- **Params**: `userId`
-- **Query**: `requestingUserId` (optional)
-- **Helpers**: `getUser`, `getPublicUserProfile`
-
-#### `GET /user/:userId/activities-processing`
-- **Purpose**: Gets count of activities currently being processed for a user
-- **Params**: `userId`
-- **Query**: `requestingUserId` (must match userId for authorization)
-- **Helper**: `getActivitiesProcessing`
-
-#### `GET /user/:userId/is-subscribed`
-- **Purpose**: Checks if user has an active subscription
-- **Params**: `userId`
-- **Helper**: `getIsUserSubscribed`
-
-#### `DELETE /user/:userId`
-- **Purpose**: Deletes a user account
-- **Params**: `userId`
-- **Helper**: `deleteUser`
-
-#### `PUT /user/:userId`
-- **Purpose**: Updates user profile information
-- **Params**: `userId`
-- **Body**: `{ name?, email?, pic? }`
-- **Helper**: `updateUser`
-
-### Activities Routes (`/activities`)
-Manages Strava activities and their associated peak summits.
-
-#### `GET /activities/recent`
-- **Purpose**: Gets most recent activities for a user
-- **Query**: `userId`, `summitsOnly?` (boolean)
-- **Helper**: `getMostRecentActivities`
-
-#### `GET /activities/search/nearest`
-- **Purpose**: Searches for activities nearest to a coordinate point
-- **Query**: `userId`, `lat`, `lng`, `page?`, `search?`
-- **Helper**: `searchNearestActivities`
-
-#### `POST /activities/peak`
-- **Purpose**: Gets all activities that summitted a specific peak
-- **Body**: `{ userId, peakId }`
-- **Helper**: `getActivitiesByPeak`
-
-#### `GET /activities/:userId/:activityId`
-- **Purpose**: Gets detailed activity information including peak summits
-- **Params**: `userId`, `activityId`
-- **Authorization**: Checks that userId matches activity owner
-- **Helper**: `getActivityDetails`, `getActivityOwnerId`
-
-#### `DELETE /activities/:userId/:activityId`
-- **Purpose**: Deletes an activity
-- **Params**: `userId`, `activityId`
-- **Authorization**: Checks that userId matches activity owner
-- **Helper**: `deleteActivity`, `getActivityOwnerId`
-
-#### `GET /activities/:userId/:activityId/coords`
-- **Purpose**: Gets coordinate data for an activity
-- **Params**: `userId`, `activityId`
-- **Authorization**: Checks that userId matches activity owner
-- **Helper**: `getCoordsByActivity`, `getActivityOwnerId`
-
-#### `GET /activities/search`
-- **Purpose**: Searches activities with optional bounding box and search term
-- **Query**: `userId`, `northWestLat?`, `northWestLng?`, `southEastLat?`, `southEastLng?`, `search?`
-- **Helper**: `searchActivities`
-
-#### `POST /activities/reprocess`
-- **Purpose**: Triggers reprocessing of an activity to recalculate peak summits
-- **Body**: `{ userId, activityId }`
-- **Authorization**: Checks that userId matches activity owner
-- **Helper**: `reprocessActivity`, `getActivityOwnerId`
-
-### Peaks Routes (`/peaks`)
-Manages mountain peaks, summits, and user interactions with peaks.
-
-#### `GET /peaks`
-- **Purpose**: Gets paginated list of peaks
-- **Query**: `page?`, `perPage?`, `search?`
-- **Helper**: `getPeaks`
-
-#### `GET /peaks/search`
-- **Purpose**: Searches peaks with optional bounding box, search term, and user-specific filters
-- **Query**: `northWestLat?`, `northWestLng?`, `southEastLat?`, `southEastLng?`, `page?`, `perPage?`, `search?`, `userId?`, `showSummittedPeaks?`
-- **Helper**: `searchPeaks`
-
-#### `GET /peaks/search/nearest`
-- **Purpose**: Finds peaks nearest to a coordinate point
-- **Query**: `userId`, `lat`, `lng`, `page?`, `search?`
-- **Helper**: `searchNearestPeaks`
-
-#### `GET /peaks/:id`
-- **Purpose**: Gets detailed peak information including summits, activities, and challenges
-- **Params**: `id`
-- **Query**: `userId` (optional)
-- **Helpers**: `getPeakById`, `getPublicSummitsByPeak`, `getChallengesByPeak`, `getActivitiesByPeak`, `getSummitsByPeak`
-
-#### `GET /peaks/summits/:userId`
-- **Purpose**: Gets all peaks summitted by a user
-- **Params**: `userId`
-- **Query**: `requestingUserId?` (if matches userId, includes private summits)
-- **Helper**: `getPeakSummitsByUser`
-
-#### `GET /peaks/summits/unclimbed/nearest`
-- **Purpose**: Gets nearest unclimbed peaks for a user
-- **Query**: `userId`
-- **Helper**: `getNearestUnclimbedPeaks`
-
-#### `GET /peaks/summits/unclimbed`
-- **Purpose**: Gets unclimbed peaks within bounds or matching search
-- **Query**: `userId`, `northWestLat?`, `northWestLng?`, `southEastLat?`, `southEastLng?`, `search?`, `showSummittedPeaks?`
-- **Helper**: `getUnclimbedPeaks`
-
-#### `POST /peaks/summits/manual`
-- **Purpose**: Adds a manual peak summit entry (not from Strava activity)
-- **Body**: `ManualPeakSummit`
-- **Helper**: `addManualPeakSummit`
-
-#### `POST /peaks/summits/favorite`
-- **Purpose**: Gets user's favorite peaks
-- **Body**: `{ userId }`
-- **Helper**: `getFavoritePeaks`
-
-#### `GET /peaks/summits/recent`
-- **Purpose**: Gets recent summits for a user
-- **Query**: `userId`
-- **Helper**: `getRecentSummits`
-
-#### `PUT /peaks/favorite`
-- **Purpose**: Toggles favorite status for a peak
-- **Body**: `{ newValue: boolean, userId, peakId }`
-- **Helpers**: `addFavoritePeak`, `removeFavoritePeak`
-
-#### `GET /peaks/favorite`
-- **Purpose**: Checks if a peak is favorited by a user
-- **Query**: `userId`, `peakId`
-- **Helper**: `getIsPeakFavorited`
-
-#### `GET /peaks/ascent/:ascentId`
-- **Purpose**: Gets detailed ascent information
-- **Params**: `ascentId`
-- **Query**: `userId`
-- **Helpers**: `getAscentDetails`, `getPeakById`, `getSummitsByPeak`
-
-#### `PUT /peaks/ascent/:ascentId`
-- **Purpose**: Updates an ascent (notes, visibility, etc.)
-- **Params**: `ascentId`
-- **Query**: `userId`
-- **Body**: `{ ascent: AscentDetail }`
-- **Authorization**: Checks that userId matches ascent owner
-- **Helpers**: `updateAscent`, `getAscentOwnerId`
-
-#### `DELETE /peaks/ascent/:ascentId`
-- **Purpose**: Deletes an ascent
-- **Params**: `ascentId`
-- **Query**: `userId`
-- **Authorization**: Checks that userId matches ascent owner
-- **Helpers**: `deleteAscent`, `getAscentOwnerId`
-
-### Challenges Routes (`/challenges`)
-Manages mountain climbing challenges (e.g., Colorado 14ers, NH 4000 footers).
-
-#### `POST /challenges/incomplete`
-- **Purpose**: Gets challenges that are not completed by a user
-- **Body**: `{ userId }`
-- **Helper**: `getUncompletedChallenges`
-
-#### `GET /challenges`
-- **Purpose**: Gets paginated list of challenges
-- **Query**: `page?`, `perPage?`, `search?`
-- **Helper**: `getChallenges`
-
-#### `GET /challenges/:challengeId/details`
-- **Purpose**: Gets detailed challenge information including peaks and user progress
-- **Params**: `challengeId`
-- **Query**: `userId`
-- **Helpers**: `getChallengeByUserAndId`, `getPeaksByChallenge`, `getMostRecentSummitByPeak`
-
-#### `GET /challenges/search`
-- **Purpose**: Searches challenges with filters for type, bounds, search term, and favorites
-- **Query**: `userId`, `type` (comma-separated: "completed,in-progress,not-started"), `northWestLat?`, `northWestLng?`, `southEastLat?`, `southEastLng?`, `search?`, `favoritesOnly?`
-- **Helper**: `getAllChallenges`
-
-#### `POST /challenges/favorite`
-- **Purpose**: Adds a challenge to user's favorites
-- **Body**: `{ userId, challengeId }`
-- **Helpers**: `getUserPrivacy`, `addChallengeFavorite`
-
-#### `PUT /challenges/favorite`
-- **Purpose**: Updates challenge favorite privacy setting
-- **Body**: `UserChallengeFavorite`
-- **Helper**: `updateChallengePrivacy`
-
-#### `DELETE /challenges/favorite/:userId/:challengeId`
-- **Purpose**: Removes a challenge from user's favorites
-- **Params**: `userId`, `challengeId`
-- **Helper**: `deleteChallengeFavorite`
-
-### Billing Routes (`/billing`)
-Manages Stripe subscription operations.
-
-#### `POST /billing/create-subscription`
-- **Purpose**: Creates a new Stripe subscription for a user
-- **Body**: `{ userId, email, stripeUserId }`
-- **Helper**: `createSubscription`
-
-#### `POST /billing/delete-subscription`
-- **Purpose**: Cancels a Stripe subscription
-- **Body**: `{ stripeUserId? }`
-- **Helper**: `deleteSubscription`
-
-### Historical Data Routes (`/historical-data`)
-Handles processing of historical Strava activities for new users.
-
-#### `POST /historical-data`
-- **Purpose**: Initiates processing of user's historical Strava activities
-- **Body**: `{ userId }`
-- **Helper**: `getUserHistoricalData`
-- **Note**: Returns immediately, processing happens asynchronously
+### Historical Data (`/api/historical-data`) — auth + owner
+- `POST /` — Kick off historical Strava sync (async)
 
 ## Helper Functions
 

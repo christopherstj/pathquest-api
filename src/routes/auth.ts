@@ -9,10 +9,21 @@ import createUser from "../helpers/user/createUser";
 const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
         Body: StravaCreds;
-    }>("/strava-creds", async (request, reply) => {
-        await updateStravaCreds(request.body);
-        reply.code(200).send({ message: "Strava creds saved" });
-    });
+    }>(
+        "/strava-creds",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { body } = request;
+
+            if (!request.user?.id || body.provider_account_id !== request.user.id) {
+                reply.code(403).send({ message: "Forbidden" });
+                return;
+            }
+
+            await updateStravaCreds(body);
+            reply.code(200).send({ message: "Strava creds saved" });
+        }
+    );
 
     fastify.post<{
         Body: {
@@ -24,8 +35,6 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
         };
     }>("/signup", async (request, reply) => {
         const { id, name, email, pic, stravaCreds } = request.body;
-
-        console.log("Creating user", id, name, email);
 
         await createUser({ id, name, email });
         await updateStravaCreds(stravaCreds);

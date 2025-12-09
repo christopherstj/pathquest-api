@@ -8,7 +8,8 @@ const searchPeaks = async (
     search?: string,
     showSummittedPeaks?: boolean,
     page?: number,
-    pageSize?: number
+    pageSize?: number,
+    state?: string
 ): Promise<Peak[]> => {
     const db = await getCloudSqlConnection();
 
@@ -25,7 +26,11 @@ const searchPeaks = async (
             paramIndex += 4;
         }
         if (search) {
-            clauses.push(`p.name LIKE $${paramIndex}`);
+            clauses.push(`p.name ILIKE $${paramIndex}`);
+            paramIndex += 1;
+        }
+        if (state) {
+            clauses.push(`p.state = $${paramIndex}`);
             paramIndex += 1;
         }
         if (!showSummittedPeaks && userId) {
@@ -92,6 +97,7 @@ const searchPeaks = async (
               ]
             : []),
         ...(search ? [`%${search}%`] : []),
+        ...(state ? [state] : []),
         ...(page && pageSize ? [pageSize, (page - 1) * pageSize] : []),
     ];
 

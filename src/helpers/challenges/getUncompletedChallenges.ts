@@ -13,7 +13,7 @@ const getUncompletedChallenges = async (
             COUNT(pc.peak_id) AS total,
             COUNT(ap2.peak_id) AS completed
             FROM challenges c 
-            LEFT JOIN peak_challenge pc 
+            LEFT JOIN peaks_challenges pc 
             ON c.id = pc.challenge_id 
             LEFT JOIN peaks p
             ON pc.peak_id = p.id

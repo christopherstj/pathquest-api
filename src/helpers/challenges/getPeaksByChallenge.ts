@@ -1,5 +1,6 @@
 import Peak from "../../typeDefs/Peak";
 import getCloudSqlConnection from "../getCloudSqlConnection";
+import convertPgNumbers from "../convertPgNumbers";
 
 const getPeaksByChallenge = async (
     challengeId: number,
@@ -27,12 +28,13 @@ const getPeaksByChallenge = async (
             ON p.id = upf.peak_id
             WHERE pc.challenge_id = $2
             GROUP BY p.name, p.id, p.location_coords, upf.user_id, p.elevation, p.county, p.state, p.country
+            ORDER BY p.elevation DESC
         `,
             [userId, challengeId]
         )
     ).rows as Peak[];
 
-    return rows;
+    return convertPgNumbers(rows);
 };
 
 export default getPeaksByChallenge;

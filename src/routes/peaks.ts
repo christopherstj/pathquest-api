@@ -24,6 +24,7 @@ import Peak from "../typeDefs/Peak";
 import getChallengesByPeak from "../helpers/challenges/getChallengesByPeak";
 import getPublicSummitsByPeak from "../helpers/peaks/getPublicSummitsByPeak";
 import { ensureOwner } from "../helpers/authz";
+import getTopPeaksBySummitCount from "../helpers/peaks/getTopPeaksBySummitCount";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -41,6 +42,17 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         reply.code(200).send(peaks);
     });
 
+    // Get top peaks by public summit count (for static generation)
+    fastify.get<{
+        Querystring: {
+            limit?: string;
+        };
+    }>("/top", async function (request, reply) {
+        const limit = parseInt(request.query.limit ?? "1000");
+        const peaks = await getTopPeaksBySummitCount(limit);
+        reply.code(200).send(peaks);
+    });
+
     fastify.get<{
         Querystring: {
             northWestLat?: string;
@@ -50,6 +62,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             page?: string;
             perPage?: string;
             search?: string;
+            state?: string;
             showSummittedPeaks?: string;
         };
     }>(
@@ -75,6 +88,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 ? parseInt(request.query.perPage)
                 : undefined;
             const search = request.query.search;
+            const state = request.query.state;
             const userId = request.user?.id;
             const showSummittedPeaks = request.query.showSummittedPeaks === "true";
 
@@ -86,7 +100,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                       ] as [[number, number], [number, number]])
                     : undefined;
 
-            const addPagination = !search && !bounds && (!page || !perPage);
+            const addPagination = !search && !state && !bounds && (!page || !perPage);
 
             const peaks = await searchPeaks(
                 bounds,
@@ -94,7 +108,8 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 search,
                 showSummittedPeaks,
                 addPagination ? 1 : page,
-                addPagination ? 1000 : perPage
+                addPagination ? 1000 : perPage,
+                state
             );
 
             reply.code(200).send(peaks);

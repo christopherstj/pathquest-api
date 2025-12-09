@@ -5,6 +5,7 @@ import getUser from "../helpers/user/getUser";
 import addUserData from "../helpers/user/addUserData";
 import addUserInterest from "../helpers/user/addUserInterest";
 import createUser from "../helpers/user/createUser";
+import getUserHistoricalData from "../helpers/historical-data/getUserHistoricalData";
 
 const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -45,6 +46,10 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
             email,
             token: stravaCreds.access_token,
         });
+
+        // Trigger historical data processing in the background for new users
+        // This starts syncing their Strava activities immediately after signup
+        getUserHistoricalData(id);
 
         reply.code(200).send({ user: newUser });
     });

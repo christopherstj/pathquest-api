@@ -26,7 +26,8 @@ const getAllChallenges = async (
         const clauses = [] as string[];
 
         if (search) {
-            clauses.push(`c.name LIKE $${paramIndex}`);
+            // Search both name and region fields with case-insensitive matching
+            clauses.push(`(c.name ILIKE $${paramIndex} OR c.region ILIKE $${paramIndex})`);
             params.push(`%${search}%`);
             paramIndex++;
         }

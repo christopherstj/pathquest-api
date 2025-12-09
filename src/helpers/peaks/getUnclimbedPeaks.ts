@@ -16,7 +16,7 @@ const getUnclimbedPeaks = async (
     let paramIndex = 2; // Start at 2 since $1 is userId
     const getWhereClause = () => {
         if (!showSummittedPeaks && bounds && search) {
-            const clause = `WHERE ap2.id IS NULL AND p.name LIKE $${paramIndex} AND p.lat BETWEEN $${
+            const clause = `WHERE ap2.id IS NULL AND p.name ILIKE $${paramIndex} AND p.lat BETWEEN $${
                 paramIndex + 1
             } AND $${paramIndex + 2} AND p.long BETWEEN $${
                 paramIndex + 3
@@ -30,11 +30,11 @@ const getUnclimbedPeaks = async (
             paramIndex += 4;
             return clause;
         } else if (!showSummittedPeaks && search) {
-            const clause = `WHERE ap2.id IS NULL AND p.name LIKE $${paramIndex}`;
+            const clause = `WHERE ap2.id IS NULL AND p.name ILIKE $${paramIndex}`;
             paramIndex += 1;
             return clause;
         } else if (bounds && search) {
-            const clause = `WHERE p.name LIKE $${paramIndex} AND p.lat BETWEEN $${
+            const clause = `WHERE p.name ILIKE $${paramIndex} AND p.lat BETWEEN $${
                 paramIndex + 1
             } AND $${paramIndex + 2} AND p.long BETWEEN $${
                 paramIndex + 3
@@ -48,7 +48,7 @@ const getUnclimbedPeaks = async (
             paramIndex += 4;
             return clause;
         } else if (search) {
-            const clause = `WHERE p.name LIKE $${paramIndex}`;
+            const clause = `WHERE p.name ILIKE $${paramIndex}`;
             paramIndex += 1;
             return clause;
         } else {

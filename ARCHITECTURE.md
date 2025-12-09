@@ -45,7 +45,7 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check)
 
 ### Peaks (`/api/peaks`)
-- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`
+- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /top` (top peaks by summit count for static generation)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId`
@@ -112,9 +112,10 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `getPeaks` - Used in routes
 - `getPeakSummits` - **UNUSED** - File appears empty or not imported
 - `getPeakSummitsByUser` - Used in routes
-- `getPublicSummitsByPeak` - Used in routes
+- `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_name` joined from users table for display in frontend summit history.
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
+- `getTopPeaksBySummitCount` - Used in routes (for static generation)
 - `getUnclimbedPeaks` - Used in routes
 - `removeFavoritePeak` - Used in routes
 - `searchNearestPeaks` - Used in routes

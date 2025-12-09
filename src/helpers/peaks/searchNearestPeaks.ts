@@ -33,7 +33,7 @@ const searchNearestPeaks = async (
             ON p.id = upf.peak_id
         WHERE
             p.location_coords IS NOT NULL
-            ${search ? `AND p.name LIKE $4` : ""}
+            ${search ? `AND p.name ILIKE $4` : ""}
         GROUP BY p.name, p.id, p.location_coords, upf.user_id, p.elevation, p.county, p.state, p.country
         ORDER BY
             distance_from_activity ASC

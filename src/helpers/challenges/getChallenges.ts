@@ -24,7 +24,7 @@ const getChallenges = async (
     } else {
         const rows = (
             await db.query(
-                `SELECT c.*, COUNT(pc.peak_id) AS num_peaks FROM challenges c LEFT JOIN peak_challenge pc ON c.id = pc.challenge_id
+                `SELECT c.*, COUNT(pc.peak_id) AS num_peaks FROM challenges c LEFT JOIN peaks_challenges pc ON c.id = pc.challenge_id
             GROUP BY c.id
             ORDER BY name ASC LIMIT $1 OFFSET $2`,
                 [perPage, skip]

@@ -11,7 +11,7 @@ const getPeakById = async (
         ? `
             SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
-            upf.user_id IS NOT NULL AS is_favorited, COUNT(ap2.id) AS summits, COUNT(ap3.id) AS public_summits
+            upf.user_id IS NOT NULL AS is_favorited, COUNT(DISTINCT ap2.id) AS summits, COUNT(DISTINCT ap3.id) AS public_summits
             FROM peaks p 
             LEFT JOIN (
                 SELECT ap.id, ap.peak_id FROM (
@@ -37,7 +37,7 @@ const getPeakById = async (
         : `
             SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
-            COUNT(ap.id) AS public_summits
+            COUNT(DISTINCT ap.id) AS public_summits
             FROM peaks p
             LEFT JOIN (
                 SELECT ap2.id, ap2.peak_id FROM activities_peaks ap2 WHERE ap2.is_public = true

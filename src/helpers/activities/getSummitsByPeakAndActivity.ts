@@ -8,17 +8,19 @@ const getSummitsByPeakAndActivity = async (
         id: string;
         timestamp: string;
         notes: string;
+        difficulty?: string;
+        experience_rating?: string;
     }[]
 > => {
     const db = await getCloudSqlConnection();
     const rows = (
         await db.query(
-            `SELECT ap.id, ap.timestamp, ap.notes
+            `SELECT ap.id, ap.timestamp, ap.notes, ap.difficulty, ap.experience_rating
             FROM activities a 
             LEFT JOIN (
-                SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM activities_peaks
+                SELECT id, timestamp, activity_id, peak_id, notes, is_public, difficulty, experience_rating FROM activities_peaks
                 UNION
-                SELECT id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+                SELECT id, timestamp, activity_id, peak_id, notes, is_public, difficulty, experience_rating FROM user_peak_manual
             ) ap ON a.id = ap.activity_id 
             LEFT JOIN peaks p ON ap.peak_id = p.id
             WHERE a.id = $1 AND p.id = $2`,
@@ -28,6 +30,8 @@ const getSummitsByPeakAndActivity = async (
         id: string;
         timestamp: string;
         notes: string;
+        difficulty?: string;
+        experience_rating?: string;
     }[];
 
     return rows;

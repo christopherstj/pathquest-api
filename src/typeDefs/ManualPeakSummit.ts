@@ -7,4 +7,6 @@ export default interface ManualPeakSummit {
     is_public: boolean;
     timestamp: string;
     timezone: string;
+    difficulty?: string;
+    experience_rating?: string;
 }

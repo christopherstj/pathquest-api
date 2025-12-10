@@ -18,7 +18,13 @@ const getActivityByPeak = async (
                     !justCoords
                         ? ", a.vert_profile, a.distance_stream, a.time_stream"
                         : ""
-                } FROM activities_peaks ap LEFT JOIN activities a ON ap.activity_id = a.id WHERE ap.peak_id = $1 AND a.user_id = $2
+                } FROM (
+                    SELECT activity_id, peak_id FROM activities_peaks
+                    UNION
+                    SELECT activity_id, peak_id FROM user_peak_manual WHERE activity_id IS NOT NULL
+                ) ap 
+                LEFT JOIN activities a ON ap.activity_id = a.id 
+                WHERE ap.peak_id = $1 AND a.user_id = $2
                 GROUP BY a.id, a.title, a.user_id, a.start_coords, a.distance, a.coords, a.start_time, a.sport, a.timezone, a.gain${
                     !justCoords
                         ? ", a.vert_profile, a.distance_stream, a.time_stream"

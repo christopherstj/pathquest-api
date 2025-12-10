@@ -18,7 +18,7 @@ const getPeakSummitsByUser = async (
         ) ap 
         LEFT JOIN peaks p ON ap.peak_id = p.id 
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
-        GROUP BY p.name, p.id, p.lat, p.long;
+        GROUP BY p.name, p.id, p.location_coords, p.elevation, p.county, p.state, p.country, p.type, p.osm_object;
     `,
             [userId, includePrivate]
         )

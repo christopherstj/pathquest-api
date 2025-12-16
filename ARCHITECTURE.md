@@ -44,15 +44,15 @@ User profiles follow the same privacy model as activities:
 - When owner accesses their own profile, private summits are included in stats
 - When access is denied, return 404 (not 403) to not reveal existence of private users
 
-### Activities (`/api/activities`) — all auth
-- `GET /recent` — Most recent activities (optional `summitsOnly`)
-- `GET /search/nearest` — Nearest activities by lat/lng
-- `GET /search` — Search by bounds/search term
-- `POST /by-peak` — Activities that summitted a peak `{ peakId }`
-- `GET /:activityId` — Details + summits (privacy-aware: public if both user & activity are public, otherwise owner only)
-- `GET /:activityId/coords` — Activity coords (owner check)
-- `DELETE /:activityId` — Delete (owner check)
-- `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check)
+### Activities (`/api/activities`)
+- `GET /recent` — Most recent activities (optional `summitsOnly`) — auth required
+- `GET /search/nearest` — Nearest activities by lat/lng — auth required
+- `GET /search` — Search by bounds/search term — auth required
+- `POST /by-peak` — Activities that summitted a peak `{ peakId }` — auth required
+- `GET /:activityId` — Details + summits (optional auth, privacy-aware: public if both user & activity are public, otherwise owner only)
+- `GET /:activityId/coords` — Activity coords (owner check) — auth required
+- `DELETE /:activityId` — Delete (owner check) — auth required
+- `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check) — auth required
 
 #### Activity Privacy Model
 Activities follow a privacy model with two layers:

@@ -99,7 +99,7 @@ const activities = (fastify: FastifyInstance, _: any, done: any) => {
         };
     }>(
         "/:activityId",
-        { onRequest: [fastify.authenticate] },
+        { onRequest: [fastify.optionalAuth] },
         async function (request, reply) {
             const { activityId } = request.params;
             const requestingUserId = request.user?.id;

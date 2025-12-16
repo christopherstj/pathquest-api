@@ -29,10 +29,20 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 
 ### Users (`/api/users`)
 - `GET /:userId` — Public profile, private when requester matches (optional auth)
+- `GET /:userId/profile` — Aggregated profile data including stats, accepted challenges, and peaks for map (optional auth, privacy-aware)
+- `GET /:userId/peaks` — Search user's summited peaks with summit counts (optional auth, privacy-aware, supports `search`, `page`, `pageSize` query params)
+- `GET /:userId/summits` — Search user's individual summit entries (optional auth, privacy-aware, supports `search`, `page`, `pageSize` query params)
 - `GET /:userId/activities-processing` — Owner only
 - `GET /:userId/is-subscribed` — Owner only
 - `PUT /:userId` — Owner only
 - `DELETE /:userId` — Owner only
+
+#### User Profile Privacy Model
+User profiles follow the same privacy model as activities:
+- If user is private (`users.is_public = false`) → only owner can access profile endpoints
+- If user is public → anyone can access (but only public summits are included)
+- When owner accesses their own profile, private summits are included in stats
+- When access is denied, return 404 (not 403) to not reveal existence of private users
 
 ### Activities (`/api/activities`) — all auth
 - `GET /recent` — Most recent activities (optional `summitsOnly`)
@@ -123,7 +133,7 @@ Access rules:
 - `getPeakById` - Used in routes
 - `getPeaks` - Used in routes
 - `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
-- `getPeakSummitsByUser` - Used in routes
+- `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_name` joined from users table for display in frontend summit history.
 - `getRecentSummits` - Used in routes
@@ -133,6 +143,8 @@ Access rules:
 - `removeFavoritePeak` - Used in routes
 - `searchNearestPeaks` - Used in routes
 - `searchPeaks` - Used in routes
+- `searchUserPeaks` - Used in routes. Searches user's summited peaks by peak name with pagination, returns peaks with summit counts, first/last summit dates. Results ordered by summit_count descending (then by most recent summit date)
+- `searchUserSummits` - Used in routes. Searches user's individual summit entries by peak name with pagination, returns summits with nested peak data
 - `updateAscent` - Used in routes
 
 ### User Helpers (`helpers/user/`)
@@ -144,6 +156,8 @@ Access rules:
 - `getPublicUserProfile` - Used in routes
 - `getUser` - Used in routes
 - `getUserPrivacy` - Used in routes
+- `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, and peak type breakdown (14ers, 13ers, etc.)
+- `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited but not completed OR in-progress with at least one summit)
 - `updateUser` - Used in routes
 
 ### Billing Helpers (`helpers/billing/`)

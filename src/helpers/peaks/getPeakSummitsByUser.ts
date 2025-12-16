@@ -9,7 +9,15 @@ const getPeakSummitsByUser = async (
     const rows = (
         await db.query<Peak>(
             `
-        SELECT p.*
+        SELECT 
+            p.id,
+            p.name,
+            p.elevation,
+            p.county,
+            p.state,
+            p.country,
+            p.type,
+            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] AS location_coords
         FROM (
             SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
@@ -18,7 +26,7 @@ const getPeakSummitsByUser = async (
         ) ap 
         LEFT JOIN peaks p ON ap.peak_id = p.id 
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
-        GROUP BY p.name, p.id, p.location_coords, p.elevation, p.county, p.state, p.country, p.type, p.osm_object;
+        GROUP BY p.id;
     `,
             [userId, includePrivate]
         )

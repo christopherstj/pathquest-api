@@ -5,6 +5,12 @@ import getIsUserSubscribed from "../helpers/user/getIsUserSunscribed";
 import deleteUser from "../helpers/user/deleteUser";
 import getActivitiesProcessing from "../helpers/activities/getActivitiesProcessing";
 import updateUser from "../helpers/user/updateUser";
+import getUserPrivacy from "../helpers/user/getUserPrivacy";
+import getUserProfileStats from "../helpers/user/getUserProfileStats";
+import getUserAcceptedChallenges from "../helpers/user/getUserAcceptedChallenges";
+import searchUserPeaks from "../helpers/peaks/searchUserPeaks";
+import searchUserSummits from "../helpers/peaks/searchUserSummits";
+import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 import { ensureOwner } from "../helpers/authz";
 
 export default async function user(
@@ -141,6 +147,162 @@ export default async function user(
                     .send({ message: `User ${userId} updated successfully` });
             } catch (error) {
                 reply.code(500).send("Error updating user");
+            }
+        }
+    );
+
+    // Profile endpoint - aggregated user stats and accepted challenges
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+    }>(
+        "/:userId/profile",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const isOwner = request.user?.id === userId;
+
+            // Check user privacy - if not owner and user is private, return 404
+            const isPublic = await getUserPrivacy(userId);
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            const includePrivate = isOwner;
+
+            try {
+                // Get user info
+                const userInfo = includePrivate
+                    ? await getUser(userId)
+                    : await getPublicUserProfile(userId);
+
+                if (!userInfo) {
+                    reply.code(404).send({ message: "User not found" });
+                    return;
+                }
+
+                // Get profile stats, accepted challenges, and peaks for map
+                const [stats, acceptedChallenges, peaksForMap] = await Promise.all([
+                    getUserProfileStats(userId, includePrivate),
+                    getUserAcceptedChallenges(userId, includePrivate),
+                    getPeakSummitsByUser(userId, includePrivate),
+                ]);
+
+                reply.code(200).send({
+                    user: userInfo,
+                    stats,
+                    acceptedChallenges,
+                    peaksForMap,
+                    isOwner,
+                });
+            } catch (error) {
+                console.error("Error fetching profile:", error);
+                reply.code(500).send({ message: "Error fetching profile" });
+            }
+        }
+    );
+
+    // Search user's summited peaks
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+        Querystring: {
+            search?: string;
+            page?: string;
+            pageSize?: string;
+        };
+    }>(
+        "/:userId/peaks",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const { search, page, pageSize } = request.query;
+            const isOwner = request.user?.id === userId;
+
+            // Check user privacy
+            const isPublic = await getUserPrivacy(userId);
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            const includePrivate = isOwner;
+
+            try {
+                const result = await searchUserPeaks(
+                    userId,
+                    includePrivate,
+                    search,
+                    page ? parseInt(page) : 1,
+                    pageSize ? parseInt(pageSize) : 50
+                );
+
+                reply.code(200).send(result);
+            } catch (error) {
+                console.error("Error searching user peaks:", error);
+                reply.code(500).send({ message: "Error searching peaks" });
+            }
+        }
+    );
+
+    // Search user's individual summits
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+        Querystring: {
+            search?: string;
+            page?: string;
+            pageSize?: string;
+        };
+    }>(
+        "/:userId/summits",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const { search, page, pageSize } = request.query;
+            const isOwner = request.user?.id === userId;
+
+            // Check user privacy
+            const isPublic = await getUserPrivacy(userId);
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            const includePrivate = isOwner;
+
+            try {
+                const result = await searchUserSummits(
+                    userId,
+                    includePrivate,
+                    search,
+                    page ? parseInt(page) : 1,
+                    pageSize ? parseInt(pageSize) : 50
+                );
+
+                reply.code(200).send(result);
+            } catch (error) {
+                console.error("Error searching user summits:", error);
+                reply.code(500).send({ message: "Error searching summits" });
             }
         }
     );

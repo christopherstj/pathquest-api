@@ -16,5 +16,6 @@ export default interface Peak {
         timestamp: string;
         activity_id: string;
         notes?: string;
+        timezone?: string;
     }[];
 }

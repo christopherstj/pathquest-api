@@ -39,10 +39,21 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `GET /search/nearest` — Nearest activities by lat/lng
 - `GET /search` — Search by bounds/search term
 - `POST /by-peak` — Activities that summitted a peak `{ peakId }`
-- `GET /:activityId` — Details + summits (owner check)
+- `GET /:activityId` — Details + summits (privacy-aware: public if both user & activity are public, otherwise owner only)
 - `GET /:activityId/coords` — Activity coords (owner check)
 - `DELETE /:activityId` — Delete (owner check)
 - `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check)
+
+#### Activity Privacy Model
+Activities follow a privacy model with two layers:
+1. **User Privacy** (`users.is_public`): If false, all user's activities are private
+2. **Activity Privacy** (`activities.is_public`): Per-activity visibility control
+
+Access rules:
+- If user is private → only owner can access their activities
+- If activity is private → only owner can access that activity
+- If both user AND activity are public → anyone can access
+- When access is denied, return 404 (not 403) to not reveal existence of private activities
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /top` (top peaks by summit count for static generation)
@@ -69,14 +80,15 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `getActivitiesByPeak` - Used in routes
 - `getActivitiesProcessing` - Used in routes
 - `getActivityById` - Used internally by `getActivityDetails`
-- `getActivityDetails` - Used in routes
+- `getActivityDetails` - Used in routes. Returns activity + flat list of summits (with peak data nested in each summit)
 - `getActivityOwnerId` - Used in routes
+- `getActivityWithPrivacy` - Used in routes for privacy-aware activity access
 - `getCoordsByActivity` - Used in routes
 - `getMostRecentActivities` - Used in routes
-- `getPeaksByActivity` - **UNUSED** - Not imported anywhere
+- `getPeaksByActivity` - **UNUSED** - Previously used by `getActivityDetails`, now replaced by `getSummitsByActivity`
 - `getReprocessingStatus` - Used internally by `reprocessActivity`
-- `getSummitsByActivity` - **UNUSED** - Not imported anywhere
-- `getSummitsByPeakAndActivity` - Used internally by `getActivityDetails`
+- `getSummitsByActivity` - Used internally by `getActivityDetails`. Returns all summits for an activity with full details (weather, notes, difficulty, experience rating) and peak data
+- `getSummitsByPeakAndActivity` - **UNUSED** - Previously used by `getActivityDetails`, now replaced by `getSummitsByActivity`
 - `reprocessActivity` - Used in routes
 - `searchActivities` - Used in routes
 - `searchNearestActivities` - Used in routes
@@ -87,7 +99,7 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `addChallengeFavorite` - Used in routes
 - `deleteChallengeFavorite` - Used in routes
 - `getAllChallenges` - Used in routes
-- `getChallengeById` - **UNUSED** - Not imported in routes (may be used internally)
+- `getChallengeById` - **UNUSED** - Not imported anywhere (neither routes nor other helpers)
 - `getChallengeByUserAndId` - Used in routes
 - `getChallenges` - Used in routes
 - `getChallengesByPeak` - Used in routes
@@ -110,8 +122,9 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `getNearestUnclimbedPeaks` - Used in routes
 - `getPeakById` - Used in routes
 - `getPeaks` - Used in routes
-- `getPeakSummits` - **UNUSED** - File appears empty or not imported
+- `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
 - `getPeakSummitsByUser` - Used in routes
+- `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_name` joined from users table for display in frontend summit history.
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
@@ -146,13 +159,17 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)
-- `authenticate` - **UNUSED** - Not imported/used as middleware
 - `checkRateLimit` - **UNUSED** - Not imported in routes
 - `convertPgNumbers` - **UNUSED** - Not imported anywhere
 - `getCloudSqlConnection` - Used internally by all database helpers
-- `getStravaAccessToken` - Used in root route and internally
+- `getStravaAccessToken` - Used internally by helpers that need Strava API access
 - `setUsageData` - **UNUSED** - Not imported in routes (may be used in workers)
 - `updateStravaCreds` - Used in routes
+
+### Authentication Plugin (`plugins/auth.ts`)
+- `authenticate` - Fastify plugin decorator used extensively via `fastify.authenticate` in route handlers
+- `optionalAuth` - Fastify plugin decorator used via `fastify.optionalAuth` for routes that work with or without auth
+- Supports both NextAuth JWT tokens and header-based authentication (OIDC edge-to-origin)
 
 ## Database Schema (Inferred)
 Key tables:
@@ -162,23 +179,33 @@ Key tables:
 - `activities_peaks` - Junction table linking activities to summited peaks
 - `user_peak_manual` - Manual peak summit entries
 - `challenges` - Challenge definitions
-- `peak_challenge` - Junction table linking peaks to challenges
+- `peaks_challenges` - Junction table linking peaks to challenges
 - `user_challenge_favorite` - User's favorited challenges
 - `user_peak_favorite` - User's favorited peaks
 - `event_queue` - Queue for processing Strava webhook events
 - `strava_rate_limits` - Tracks Strava API rate limit usage
-- `strava_creds` - Stores Strava OAuth tokens
+- `strava_tokens` - Stores Strava OAuth tokens
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication
 - **Google Maps Services**: Geocoding and mapping
 - **Stripe**: Subscription billing
 - **Google Cloud Pub/Sub**: Message queue for activity processing
-
 ## Notes
-- The root route (`/`) appears to be unused and could be removed
-- Several helper functions are unused and could be cleaned up
-- The `authenticate` helper exists but is not used as middleware (authentication may be handled client-side)
-- `convertPgNumbers` utility exists but is not used (PostgreSQL number conversion may be handled differently)
-- Some helper functions are used internally by other helpers but not directly in routes
+- Several helper functions are unused and could be cleaned up:
+  - `getSummitsByActivity` - Not imported anywhere
+  - `getNearbyPeaks` - Not imported in routes
+  - `getPeakSummits` - File is empty
+  - `getChallengeById` - Not used anywhere
+  - `getSubscribedChallenges` - Entirely commented out
+  - `addEventToQueue`, `checkRateLimit`, `convertPgNumbers`, `setUsageData` - Not used in API (may be used in backend workers)
+- Some helper functions are used internally by other helpers but not directly in routes:
+  - `getPeaksByActivity` - Used by `getActivityDetails`
+  - `getActivityById` - Used by `getActivityDetails`
+  - `getSummitsByPeakAndActivity` - Used by `getActivityDetails`
+  - `getHistoricalWeather` - Used by `addManualPeakSummit`
+  - `getRecentPeakSummits` - Used by `getMostRecentSummitByPeak`
+  - Historical data helpers are used internally by `getUserHistoricalData`
+- Authentication is handled via Fastify plugin (`plugins/auth.ts`), not a standalone helper function
+
 

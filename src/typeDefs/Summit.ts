@@ -14,6 +14,7 @@ export default interface Summit {
     wind_speed?: number;
     wind_direction?: number;
     is_public?: boolean;
+    timezone?: string;
     difficulty?: Difficulty;
     experience_rating?: ExperienceRating;
 }

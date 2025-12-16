@@ -1,27 +1,21 @@
-import Peak from "../../typeDefs/Peak";
 import getActivityById from "./getActivityById";
-import getPeaksByActivity from "./getPeaksByActivity";
-import getSummitsByPeakAndActivity from "./getSummitsByPeakAndActivity";
+import getSummitsByActivity, { SummitWithPeak } from "./getSummitsByActivity";
+import Activity from "../../typeDefs/Activity";
 
-const getActivityDetails = async (activityId: string) => {
-    const peakIds = await getPeaksByActivity(activityId);
+export interface ActivityDetails {
+    activity: Activity | null;
+    summits: SummitWithPeak[];
+}
 
-    const promises = peakIds.map(async (peak): Promise<Peak> => {
-        const ascents = await getSummitsByPeakAndActivity(peak.id, activityId);
-
-        return {
-            ...peak,
-            ascents: ascents.map((a) => ({ ...a, activity_id: activityId })),
-        };
-    });
-
-    const peakSummits = await Promise.all(promises);
-
-    const activity = await getActivityById(activityId);
+const getActivityDetails = async (activityId: string): Promise<ActivityDetails> => {
+    const [activity, summits] = await Promise.all([
+        getActivityById(activityId),
+        getSummitsByActivity(activityId),
+    ]);
 
     return {
         activity,
-        peakSummits,
+        summits,
     };
 };
 

@@ -7,6 +7,7 @@ import getMostRecentActivities from "../helpers/activities/getMostRecentActiviti
 import searchNearestActivities from "../helpers/activities/searchNearestActivities";
 import deleteActivity from "../helpers/activities/deleteActivity";
 import getActivityOwnerId from "../helpers/activities/getActivityOwnerId";
+import getActivityWithPrivacy from "../helpers/activities/getActivityWithPrivacy";
 import reprocessActivity from "../helpers/activities/reprocessActivity";
 import { ensureOwner } from "../helpers/authz";
 
@@ -101,18 +102,33 @@ const activities = (fastify: FastifyInstance, _: any, done: any) => {
         { onRequest: [fastify.authenticate] },
         async function (request, reply) {
             const { activityId } = request.params;
+            const requestingUserId = request.user?.id;
 
-            const ownerId = await getActivityOwnerId(activityId);
+            // Get activity privacy information
+            const privacyInfo = await getActivityWithPrivacy(activityId);
 
-            if (!ensureOwner(request, reply, ownerId)) {
+            if (!privacyInfo) {
+                reply.code(404).send({ message: "Activity not found" });
                 return;
             }
 
-            const { activity, peakSummits } = await getActivityDetails(
+            const { ownerId, isActivityPublic, isUserPublic } = privacyInfo;
+            const isOwner = requestingUserId === ownerId;
+
+            // Privacy check:
+            // - If user is private OR activity is private, only owner can access
+            // - If user is public AND activity is public, anyone can access
+            if (!isOwner && (!isUserPublic || !isActivityPublic)) {
+                // Return 404 instead of 403 to not reveal existence of private activities
+                reply.code(404).send({ message: "Activity not found" });
+                return;
+            }
+
+            const { activity, summits } = await getActivityDetails(
                 activityId
             );
 
-            reply.code(200).send({ activity, peakSummits });
+            reply.code(200).send({ activity, summits });
         }
     );
 

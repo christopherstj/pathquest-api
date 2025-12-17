@@ -23,8 +23,7 @@
     "devDependencies": {
         "jsonwebtoken": "^9.0.3",
         "nodemon": "^3.1.7",
-        "ts-node": "^10.9.2",
-        "vitest": "^1.6.1"
+        "ts-node": "^10.9.2"
     },
     "dependencies": {
         "@fastify/jwt": "^9.0.1",
@@ -41,6 +40,7 @@
         "next-auth": "^4.24.8",
         "pg": "^8.16.3",
         "stripe": "^17.4.0",
-        "typescript": "^5.6.2"
+        "typescript": "^5.6.2",
+        "vitest": "^3.2.4"
     }
 }

@@ -184,6 +184,7 @@ Access rules:
 - `authenticate` - Fastify plugin decorator used extensively via `fastify.authenticate` in route handlers
 - `optionalAuth` - Fastify plugin decorator used via `fastify.optionalAuth` for routes that work with or without auth
 - Supports both NextAuth JWT tokens and header-based authentication (OIDC edge-to-origin)
+- **Google ID Token Detection**: Automatically detects Google ID tokens (from Vercel OIDC → Google Workload Identity Federation) and skips NextAuth JWT decoding. Google tokens are validated by Google IAM at the infrastructure level, but user identity must come from `x-user-*` headers.
 
 ## Database Schema (Inferred)
 Key tables:

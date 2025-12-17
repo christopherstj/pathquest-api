@@ -28,6 +28,34 @@ const getBearerToken = (request: FastifyRequest) => {
     return header.replace("Bearer ", "").trim();
 };
 
+/**
+ * Checks if a token is a Google ID token (not a NextAuth JWT).
+ * Google ID tokens have an 'iss' field that's a Google domain or service account email.
+ */
+const isGoogleIdToken = (token: string): boolean => {
+    try {
+        // Decode without verification to check the issuer
+        const parts = token.split(".");
+        if (parts.length !== 3) return false;
+        
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+        const issuer = payload.iss;
+        
+        // Google ID tokens have issuers like:
+        // - https://accounts.google.com
+        // - service-account@project.iam.gserviceaccount.com
+        // - https://oidc.vercel.com (Vercel OIDC, but these get exchanged for Google tokens)
+        return (
+            typeof issuer === "string" &&
+            (issuer.includes("google.com") ||
+             issuer.includes("gserviceaccount.com") ||
+             issuer.startsWith("https://accounts.google.com"))
+        );
+    } catch {
+        return false;
+    }
+};
+
 const decodeToken = async (token: string) => {
     return decode({
         token,
@@ -86,6 +114,16 @@ const authPlugin = fp(async (fastify, _opts) => {
                 return;
             }
 
+            // Google ID tokens can't be decoded as NextAuth JWTs
+            // They're validated by Google IAM, but we need x-user-* headers for user info
+            if (isGoogleIdToken(token!)) {
+                fastify.log.warn(
+                    "Google ID token provided without x-user-* headers - cannot determine user identity"
+                );
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+
             try {
                 const decoded = await decodeToken(token!);
                 const user = buildUser(decoded);
@@ -115,6 +153,13 @@ const authPlugin = fp(async (fastify, _opts) => {
             }
 
             if (!token) {
+                return;
+            }
+
+            // Skip NextAuth decoding for Google ID tokens (they're validated by Google IAM)
+            if (isGoogleIdToken(token)) {
+                // Google IAM validates the token, but we can't extract user info from it
+                // User info should come from x-user-* headers instead
                 return;
             }
 

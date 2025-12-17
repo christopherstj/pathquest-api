@@ -40,6 +40,7 @@ const getPublicSummitsByPeak = async (peakId: string): Promise<PublicSummit[]> =
             LEFT JOIN users u ON u.id = ap.user_id
             WHERE peak_id = $1
             AND ap.is_public = TRUE
+            AND u.is_public = TRUE
             ORDER BY ap.timestamp DESC
         `,
             [peakId]

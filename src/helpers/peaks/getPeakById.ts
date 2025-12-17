@@ -24,9 +24,14 @@ const getPeakById = async (
                 WHERE ap.user_id = $1
             ) ap2 ON p.id = ap2.peak_id
             LEFT JOIN (
-                SELECT ap4.id, ap4.peak_id FROM activities_peaks ap4 WHERE ap4.is_public = true
+                SELECT ap4.id, ap4.peak_id FROM activities_peaks ap4 
+                LEFT JOIN activities a4 ON a4.id = ap4.activity_id
+                LEFT JOIN users u4 ON u4.id = a4.user_id
+                WHERE ap4.is_public = true AND u4.is_public = true
                 UNION
-                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
+                SELECT upm.id, upm.peak_id FROM user_peak_manual upm
+                LEFT JOIN users u5 ON u5.id = upm.user_id
+                WHERE upm.is_public = true AND u5.is_public = true
             )
             ap3 ON ap3.peak_id = p.id
             LEFT JOIN user_peak_favorite upf
@@ -40,9 +45,14 @@ const getPeakById = async (
             COUNT(DISTINCT ap.id) AS public_summits
             FROM peaks p
             LEFT JOIN (
-                SELECT ap2.id, ap2.peak_id FROM activities_peaks ap2 WHERE ap2.is_public = true
+                SELECT ap2.id, ap2.peak_id FROM activities_peaks ap2
+                LEFT JOIN activities a2 ON a2.id = ap2.activity_id
+                LEFT JOIN users u2 ON u2.id = a2.user_id
+                WHERE ap2.is_public = true AND u2.is_public = true
                 UNION
-                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
+                SELECT upm.id, upm.peak_id FROM user_peak_manual upm
+                LEFT JOIN users u3 ON u3.id = upm.user_id
+                WHERE upm.is_public = true AND u3.is_public = true
             )
             ap ON ap.peak_id = p.id
             WHERE p.id = $1

@@ -135,7 +135,7 @@ Access rules:
 - `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
-- `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab.
+- `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings.
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
 - `getTopPeaksBySummitCount` - Used in routes (for static generation)

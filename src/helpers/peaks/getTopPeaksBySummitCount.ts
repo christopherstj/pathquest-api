@@ -18,10 +18,15 @@ const getTopPeaksBySummitCount = async (limit: number = 1000): Promise<TopPeak[]
              LEFT JOIN (
                 SELECT ap.id, ap.peak_id, ap.is_public 
                 FROM activities_peaks ap
+                LEFT JOIN activities a ON a.id = ap.activity_id
+                LEFT JOIN users u ON u.id = a.user_id
+                WHERE ap.is_public = true AND u.is_public = true
                 UNION ALL
                 SELECT upm.id, upm.peak_id, upm.is_public 
                 FROM user_peak_manual upm
-             ) ps ON p.id = ps.peak_id AND ps.is_public = true
+                LEFT JOIN users u2 ON u2.id = upm.user_id
+                WHERE upm.is_public = true AND u2.is_public = true
+             ) ps ON p.id = ps.peak_id
              GROUP BY p.id
              HAVING COUNT(ps.id) > 0
              ORDER BY public_summits DESC

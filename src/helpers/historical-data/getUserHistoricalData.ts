@@ -4,9 +4,9 @@ import getNextActivities from "./getNextActivities";
 import setHistoricalDataFlag from "./setHistoricalDataFlag";
 
 const getUserHistoricalData = async (userId: string) => {
-    const hasPrcocessedHistoricalData = await checkUserHistoricalData(userId);
+    const hasProcessedHistoricalData = await checkUserHistoricalData(userId);
 
-    if (hasPrcocessedHistoricalData === null || hasPrcocessedHistoricalData) {
+    if (hasProcessedHistoricalData === null || hasProcessedHistoricalData) {
         console.log(
             "User has already processed historical data or does not exist"
         );

@@ -5,7 +5,6 @@ import getUser from "../helpers/user/getUser";
 import addUserData from "../helpers/user/addUserData";
 import addUserInterest from "../helpers/user/addUserInterest";
 import createUser from "../helpers/user/createUser";
-import getUserHistoricalData from "../helpers/historical-data/getUserHistoricalData";
 
 const auth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
@@ -37,6 +36,26 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
     }>("/signup", async (request, reply) => {
         const { id, name, email, pic, stravaCreds } = request.body;
 
+        // Validate required fields
+        if (!id || typeof id !== "string") {
+            reply.code(400).send({ message: "Missing or invalid id" });
+            return;
+        }
+        if (!name || typeof name !== "string") {
+            reply.code(400).send({ message: "Missing or invalid name" });
+            return;
+        }
+        if (
+            !stravaCreds ||
+            !stravaCreds.access_token ||
+            !stravaCreds.refresh_token ||
+            !stravaCreds.provider_account_id ||
+            !stravaCreds.expires_at
+        ) {
+            reply.code(400).send({ message: "Missing or invalid stravaCreds" });
+            return;
+        }
+
         await createUser({ id, name, email });
         await updateStravaCreds(stravaCreds);
 
@@ -46,10 +65,6 @@ const auth = (fastify: FastifyInstance, _: any, done: any) => {
             email,
             token: stravaCreds.access_token,
         });
-
-        // Trigger historical data processing in the background for new users
-        // This starts syncing their Strava activities immediately after signup
-        getUserHistoricalData(id);
 
         reply.code(200).send({ user: newUser });
     });

@@ -2,7 +2,7 @@ export default interface User {
     id: string;
     name: string;
     email?: string;
-    pic: string;
+    pic: string | null;
     update_description: boolean;
     city?: string;
     state?: string;

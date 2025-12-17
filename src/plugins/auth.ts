@@ -80,17 +80,29 @@ const buildUserFromHeaders = (request: FastifyRequest): AuthenticatedUser | null
     const userId = request.headers["x-user-id"];
     if (!userId) return null;
     const email = request.headers["x-user-email"];
-    const name = request.headers["x-user-name"];
+    const nameHeader = request.headers["x-user-name"];
     const isPublicHeader = request.headers["x-user-public"];
     const isPublic =
         typeof isPublicHeader === "string"
             ? isPublicHeader.toLowerCase() === "true"
             : undefined;
 
+    // Decode URL-encoded name (handles emojis and non-ASCII characters)
+    const rawName = Array.isArray(nameHeader) ? nameHeader[0] : nameHeader;
+    let name: string | undefined;
+    if (rawName) {
+        try {
+            name = decodeURIComponent(rawName);
+        } catch {
+            // If decoding fails, use the raw value
+            name = rawName;
+        }
+    }
+
     return {
         id: Array.isArray(userId) ? userId[0] : String(userId),
         email: Array.isArray(email) ? email[0] : email,
-        name: Array.isArray(name) ? name[0] : name,
+        name,
         isPublic,
     };
 };

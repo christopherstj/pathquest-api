@@ -2,8 +2,9 @@ import Summit from "../../typeDefs/Summit";
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import convertPgNumbers from "../convertPgNumbers";
 
-// Extended summit type with user_name for public display
+// Extended summit type with user info for public display
 interface PublicSummit extends Summit {
+    user_id?: string;
     user_name?: string;
 }
 
@@ -28,6 +29,7 @@ const getPublicSummitsByPeak = async (peakId: string): Promise<PublicSummit[]> =
                 ap.difficulty,
                 ap.experience_rating,
                 ap.timezone,
+                u.id as user_id,
                 u.name as user_name
             FROM (
                 SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, ap.temperature, ap.precipitation, ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone FROM activities_peaks ap

@@ -128,20 +128,46 @@ export default async function user(
             name?: string;
             email?: string;
             pic?: string;
+            city?: string;
+            state?: string;
+            country?: string;
+            location_coords?: [number, number] | null;
+            update_description?: boolean;
+            is_public?: boolean;
         };
     }>(
         "/:userId",
         { onRequest: [fastify.authenticate] },
         async (request, reply) => {
             const { userId } = request.params;
-            const { name, email, pic } = request.body;
+            const {
+                name,
+                email,
+                pic,
+                city,
+                state,
+                country,
+                location_coords,
+                update_description,
+                is_public,
+            } = request.body;
 
             if (!ensureOwner(request, reply, userId)) {
                 return;
             }
 
             try {
-                await updateUser(userId, { name, email, pic });
+                await updateUser(userId, {
+                    name,
+                    email,
+                    pic,
+                    city,
+                    state,
+                    country,
+                    location_coords,
+                    update_description,
+                    is_public,
+                });
                 reply
                     .code(200)
                     .send({ message: `User ${userId} updated successfully` });

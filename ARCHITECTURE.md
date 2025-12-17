@@ -34,7 +34,7 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `GET /:userId/summits` — Search user's individual summit entries (optional auth, privacy-aware, supports `search`, `page`, `pageSize` query params)
 - `GET /:userId/activities-processing` — Owner only
 - `GET /:userId/is-subscribed` — Owner only
-- `PUT /:userId` — Owner only
+- `PUT /:userId` — Owner only. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (as [lng, lat]), `update_description`, `is_public`
 - `DELETE /:userId` — Owner only
 
 #### User Profile Privacy Model
@@ -154,11 +154,11 @@ Access rules:
 - `deleteUser` - Used in routes
 - `getIsUserSubscribed` - Used in routes (note: filename typo `getIsUserSunscribed`)
 - `getPublicUserProfile` - Used in routes
-- `getUser` - Used in routes
+- `getUser` - Used in routes. Returns full user data including `is_public` field
 - `getUserPrivacy` - Used in routes
 - `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, and peak type breakdown (14ers, 13ers, etc.)
 - `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited challenges that are not completed)
-- `updateUser` - Used in routes
+- `updateUser` - Used in routes. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (converts [lng, lat] to PostGIS geography), `update_description`, `is_public`
 
 ### Billing Helpers (`helpers/billing/`)
 - `createSubscription` - Used in routes

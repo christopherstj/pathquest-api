@@ -3,7 +3,9 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getUser = async (userId: string) => {
     const db = await getCloudSqlConnection();
-    const rows = (
+    
+    // First get the user data without GROUP BY to ensure all columns are included
+    const userRows = (
         await db.query<User>(
             `SELECT u.id, 
         u.name, 
@@ -18,19 +20,40 @@ const getUser = async (userId: string) => {
         u.is_subscribed,
         u.is_lifetime_free,
         u.historical_data_processed,
-        COUNT(eq.id) as processing_activity_count
+        u.is_public
         FROM users u
-        LEFT JOIN (
-            SELECT id, user_id FROM event_queue WHERE user_id = $1 AND completed IS NULL AND attempts < 5
-        ) eq ON eq.user_id = u.id
-        WHERE u.id = $2
-        GROUP BY u.id
+        WHERE u.id = $1
         LIMIT 1;`,
-            [userId, userId]
+            [userId]
         )
     ).rows;
 
-    const user = rows[0];
+    const user = userRows[0];
+    
+    if (!user) {
+        return null;
+    }
+
+    // Then get the processing count separately
+    const countRows = (
+        await db.query<{ count: number }>(
+            `SELECT COUNT(eq.id) as count
+            FROM event_queue eq
+            WHERE eq.user_id = $1 AND eq.completed IS NULL AND eq.attempts < 5`,
+            [userId]
+        )
+    ).rows;
+
+    user.processing_activity_count = countRows[0]?.count || 0;
+    
+    // Ensure boolean fields are properly converted (PostgreSQL may return as string in some cases)
+    user.update_description = Boolean(user.update_description);
+    user.is_subscribed = Boolean(user.is_subscribed);
+    user.is_lifetime_free = Boolean(user.is_lifetime_free);
+    user.historical_data_processed = Boolean(user.historical_data_processed);
+    if (user.is_public !== undefined) {
+        user.is_public = Boolean(user.is_public);
+    }
 
     return user;
 };

@@ -32,23 +32,24 @@ const getAllChallenges = async (
             paramIndex++;
         }
         if (bounds) {
-            clauses.push(
-                `ST_Y(c.location_coords::geometry) BETWEEN $${paramIndex} AND $${paramIndex + 1}`
-            );
+            // Check if ANY peak in the challenge is within the viewport bounds
+            // This allows challenges to appear when zoomed in on any of their peaks
+            clauses.push(`
+                EXISTS (
+                    SELECT 1 
+                    FROM peaks_challenges pc_bounds
+                    INNER JOIN peaks p_bounds ON pc_bounds.peak_id = p_bounds.id
+                    WHERE pc_bounds.challenge_id = c.id
+                    AND p_bounds.location_coords && ST_MakeEnvelope($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, 4326)::geography
+                )
+            `);
             params.push(
-                Math.min(bounds.northWest.lat, bounds.southEast.lat),
-                Math.max(bounds.northWest.lat, bounds.southEast.lat)
+                Math.min(bounds.northWest.lng, bounds.southEast.lng), // minLng
+                Math.min(bounds.northWest.lat, bounds.southEast.lat), // minLat
+                Math.max(bounds.northWest.lng, bounds.southEast.lng), // maxLng
+                Math.max(bounds.northWest.lat, bounds.southEast.lat)  // maxLat
             );
-            paramIndex += 2;
-
-            clauses.push(
-                `ST_X(c.location_coords::geometry) BETWEEN $${paramIndex} AND $${paramIndex + 1}`
-            );
-            params.push(
-                Math.min(bounds.northWest.lng, bounds.southEast.lng),
-                Math.max(bounds.northWest.lng, bounds.southEast.lng)
-            );
-            paramIndex += 2;
+            paramIndex += 4;
         }
 
         if (favoritesOnly) {

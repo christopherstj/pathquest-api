@@ -3,8 +3,7 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 
 /**
  * Gets challenges the user has "accepted" - defined as:
- * - User has favorited the challenge AND challenge is not completed, OR
- * - User has started the challenge (in-progress, at least 1 peak summited but not all)
+ * - User has favorited the challenge (stored in user_challenge_favorite table)
  * 
  * Excludes completed challenges (where all peaks have been summited)
  */
@@ -14,9 +13,7 @@ const getUserAcceptedChallenges = async (
 ): Promise<ChallengeProgress[]> => {
     const db = await getCloudSqlConnection();
 
-    // This query finds challenges that are:
-    // 1. Favorited by the user AND not completed, OR
-    // 2. In-progress (at least 1 summit, but not all)
+    // This query finds challenges that are favorited by the user AND not completed
     const query = `
         WITH user_summit_peaks AS (
             SELECT DISTINCT ap.peak_id
@@ -42,9 +39,9 @@ const getUserAcceptedChallenges = async (
                 COUNT(DISTINCT usp.peak_id) AS completed,
                 MAX(CASE WHEN ucf.challenge_id IS NOT NULL THEN 1 ELSE 0 END) = 1 AS is_favorited
             FROM challenges c
+            INNER JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id AND ucf.user_id = $1
             LEFT JOIN peaks_challenges pc ON c.id = pc.challenge_id
             LEFT JOIN user_summit_peaks usp ON pc.peak_id = usp.peak_id
-            LEFT JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id AND ucf.user_id = $1
             GROUP BY c.id
         )
         SELECT 
@@ -61,12 +58,7 @@ const getUserAcceptedChallenges = async (
         WHERE 
             total > 0 
             AND completed < total
-            AND (
-                is_favorited = true 
-                OR completed > 0
-            )
         ORDER BY 
-            CASE WHEN is_favorited THEN 0 ELSE 1 END,
             (completed::float / total::float) DESC,
             name ASC
     `;

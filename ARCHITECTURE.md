@@ -108,7 +108,7 @@ Access rules:
 ### Challenges Helpers (`helpers/challenges/`)
 - `addChallengeFavorite` - Used in routes
 - `deleteChallengeFavorite` - Used in routes
-- `getAllChallenges` - Used in routes
+- `getAllChallenges` - Used in routes. Filters challenges by bounds based on whether any peak in the challenge is within the viewport (not the challenge center point)
 - `getChallengeById` - **UNUSED** - Not imported anywhere (neither routes nor other helpers)
 - `getChallengeByUserAndId` - Used in routes
 - `getChallenges` - Used in routes
@@ -157,7 +157,7 @@ Access rules:
 - `getUser` - Used in routes
 - `getUserPrivacy` - Used in routes
 - `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, and peak type breakdown (14ers, 13ers, etc.)
-- `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited but not completed OR in-progress with at least one summit)
+- `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited challenges that are not completed)
 - `updateUser` - Used in routes
 
 ### Billing Helpers (`helpers/billing/`)

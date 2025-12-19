@@ -30,6 +30,7 @@ import confirmSummit from "../helpers/peaks/confirmSummit";
 import denySummit from "../helpers/peaks/denySummit";
 import confirmAllSummits from "../helpers/peaks/confirmAllSummits";
 import getPeakActivity from "../helpers/peaks/getPeakActivity";
+import getCurrentWeather from "../helpers/peaks/getCurrentWeather";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -198,6 +199,35 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         const peakId = request.params.id;
         const activity = await getPeakActivity(peakId);
         reply.code(200).send(activity);
+    });
+
+    // Get current weather for a peak
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+    }>("/:id/weather", async function (request, reply) {
+        const peakId = request.params.id;
+        
+        // First get the peak to get its coordinates and elevation
+        const peak = await getPeakById(peakId, "");
+        
+        if (!peak) {
+            reply.code(404).send({ message: "Peak not found" });
+            return;
+        }
+        
+        if (!peak.location_coords) {
+            reply.code(400).send({ message: "Peak has no coordinates" });
+            return;
+        }
+        
+        const weather = await getCurrentWeather(
+            { lat: peak.location_coords[1], lon: peak.location_coords[0] },
+            peak.elevation ?? undefined
+        );
+        
+        reply.code(200).send(weather);
     });
 
     fastify.get<{

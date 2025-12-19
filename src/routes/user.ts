@@ -10,6 +10,7 @@ import getUserProfileStats from "../helpers/user/getUserProfileStats";
 import getUserAcceptedChallenges from "../helpers/user/getUserAcceptedChallenges";
 import searchUserPeaks from "../helpers/peaks/searchUserPeaks";
 import searchUserSummits from "../helpers/peaks/searchUserSummits";
+import getStatesWithSummits from "../helpers/peaks/getStatesWithSummits";
 import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 import getUserJournal from "../helpers/user/getUserJournal";
 import { ensureOwner } from "../helpers/authz";
@@ -245,13 +246,18 @@ export default async function user(
             search?: string;
             page?: string;
             pageSize?: string;
+            state?: string;
+            minElevation?: string;
+            maxElevation?: string;
+            hasMultipleSummits?: string;
+            sortBy?: string;
         };
     }>(
         "/:userId/peaks",
         { onRequest: [fastify.optionalAuth] },
         async (request, reply) => {
             const { userId } = request.params;
-            const { search, page, pageSize } = request.query;
+            const { search, page, pageSize, state, minElevation, maxElevation, hasMultipleSummits, sortBy } = request.query;
             const isOwner = request.user?.id === userId;
 
             // Check user privacy
@@ -272,7 +278,14 @@ export default async function user(
                 const result = await searchUserPeaks(
                     userId,
                     includePrivate,
-                    search,
+                    {
+                        search,
+                        state,
+                        minElevation: minElevation ? parseFloat(minElevation) : undefined,
+                        maxElevation: maxElevation ? parseFloat(maxElevation) : undefined,
+                        hasMultipleSummits: hasMultipleSummits === "true",
+                        sortBy: sortBy as "summits" | "elevation" | "recent" | "oldest" | "name" | undefined,
+                    },
                     page ? parseInt(page) : 1,
                     pageSize ? parseInt(pageSize) : 50
                 );
@@ -281,6 +294,42 @@ export default async function user(
             } catch (error) {
                 console.error("Error searching user peaks:", error);
                 reply.code(500).send({ message: "Error searching peaks" });
+            }
+        }
+    );
+
+    // Get states where user has summits (for filter dropdown)
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+    }>(
+        "/:userId/peaks/states",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const isOwner = request.user?.id === userId;
+
+            // Check user privacy
+            const isPublic = await getUserPrivacy(userId);
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            const includePrivate = isOwner;
+
+            try {
+                const states = await getStatesWithSummits(userId, includePrivate);
+                reply.code(200).send({ states });
+            } catch (error) {
+                console.error("Error getting user summit states:", error);
+                reply.code(500).send({ message: "Error getting states" });
             }
         }
     );

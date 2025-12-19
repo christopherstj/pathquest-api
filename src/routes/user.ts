@@ -11,6 +11,7 @@ import getUserAcceptedChallenges from "../helpers/user/getUserAcceptedChallenges
 import searchUserPeaks from "../helpers/peaks/searchUserPeaks";
 import searchUserSummits from "../helpers/peaks/searchUserSummits";
 import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
+import getUserJournal from "../helpers/user/getUserJournal";
 import { ensureOwner } from "../helpers/authz";
 
 export default async function user(
@@ -329,6 +330,63 @@ export default async function user(
             } catch (error) {
                 console.error("Error searching user summits:", error);
                 reply.code(500).send({ message: "Error searching summits" });
+            }
+        }
+    );
+
+    // User journal - optimized paginated endpoint with filtering
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+        Querystring: {
+            cursor?: string;
+            limit?: string;
+            search?: string;
+            year?: string;
+            hasReport?: string;
+            peakId?: string;
+        };
+    }>(
+        "/:userId/journal",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId } = request.params;
+            const { cursor, limit, search, year, hasReport, peakId } = request.query;
+            const isOwner = request.user?.id === userId;
+
+            // Check user privacy
+            const isPublic = await getUserPrivacy(userId);
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            const includePrivate = isOwner;
+
+            try {
+                const result = await getUserJournal(
+                    userId,
+                    includePrivate,
+                    {
+                        cursor,
+                        limit: limit ? parseInt(limit) : 20,
+                        search,
+                        year: year ? parseInt(year) : undefined,
+                        hasReport: hasReport === "true" ? true : hasReport === "false" ? false : undefined,
+                        peakId,
+                    }
+                );
+
+                reply.code(200).send(result);
+            } catch (error) {
+                console.error("Error fetching user journal:", error);
+                reply.code(500).send({ message: "Error fetching journal" });
             }
         }
     );

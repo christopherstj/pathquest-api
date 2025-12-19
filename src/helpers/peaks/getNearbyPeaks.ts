@@ -17,18 +17,26 @@ const getNearbyPeaks = async (
             FROM peaks p 
             LEFT JOIN (
                 SELECT ap.id, ap.peak_id FROM (
-                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public 
+                    FROM activities_peaks ap
                     LEFT JOIN activities a ON a.id = ap.activity_id
+                    WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                     UNION
-                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public 
+                    FROM user_peak_manual
                 ) ap
                 LEFT JOIN activities a ON ap.activity_id = a.id
                 WHERE ap.user_id = $3
             ) ap2 ON p.id = ap2.peak_id
             LEFT JOIN (
-                SELECT ap4.id, ap4.peak_id FROM activities_peaks ap4 WHERE ap4.is_public = true
+                SELECT ap4.id, ap4.peak_id 
+                FROM activities_peaks ap4 
+                WHERE ap4.is_public = true
+                AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
                 UNION
-                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
+                SELECT upm.id, upm.peak_id 
+                FROM user_peak_manual upm 
+                WHERE upm.is_public = true
             )
             ap3 ON ap3.peak_id = p.id
             LEFT JOIN user_peak_favorite upf
@@ -43,9 +51,14 @@ const getNearbyPeaks = async (
             COUNT(ap.id) AS public_summits
             FROM peaks p
             LEFT JOIN (
-                SELECT ap2.id, ap2.peak_id FROM activities_peaks ap2 WHERE ap2.is_public = true
+                SELECT ap2.id, ap2.peak_id 
+                FROM activities_peaks ap2 
+                WHERE ap2.is_public = true
+                AND COALESCE(ap2.confirmation_status, 'auto_confirmed') != 'denied'
                 UNION
-                SELECT upm.id, upm.peak_id FROM user_peak_manual upm WHERE upm.is_public = true
+                SELECT upm.id, upm.peak_id 
+                FROM user_peak_manual upm 
+                WHERE upm.is_public = true
             )
             ap ON ap.peak_id = p.id
             WHERE p.id = $3

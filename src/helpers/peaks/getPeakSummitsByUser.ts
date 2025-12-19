@@ -19,10 +19,13 @@ const getPeakSummitsByUser = async (
             p.type,
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] AS location_coords
         FROM (
-            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public 
+            FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
-            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public 
+            FROM user_peak_manual
         ) ap 
         LEFT JOIN peaks p ON ap.peak_id = p.id 
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
@@ -43,10 +46,13 @@ const getPeakSummitsByUser = async (
                 `
             SELECT ap.id, timestamp, activity_id, ap.timezone
             FROM (
-                SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, a.timezone FROM activities_peaks ap
+                SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, a.timezone 
+                FROM activities_peaks ap
                 LEFT JOIN activities a ON a.id = ap.activity_id
+                WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                 UNION
-                SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, timezone FROM user_peak_manual
+                SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, timezone 
+                FROM user_peak_manual
             ) ap
             WHERE peak_id = $1 
             AND (ap.is_public = true OR $2)

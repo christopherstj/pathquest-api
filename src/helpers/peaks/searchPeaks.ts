@@ -56,10 +56,13 @@ const searchPeaks = async (
             userId
                 ? `LEFT JOIN (
                         SELECT ap.id, ap.peak_id FROM (
-                            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public 
+                            FROM activities_peaks ap
                             LEFT JOIN activities a ON a.id = ap.activity_id
+                            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                             UNION
-                            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+                            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public 
+                            FROM user_peak_manual
                         ) ap
                         WHERE ap.user_id = $1
                     ) ap2 ON p.id = ap2.peak_id
@@ -68,12 +71,16 @@ const searchPeaks = async (
                 : ""
         }
         LEFT JOIN (
-            SELECT ap4.id, ap4.peak_id FROM activities_peaks ap4
+            SELECT ap4.id, ap4.peak_id 
+            FROM activities_peaks ap4
             LEFT JOIN activities a4 ON a4.id = ap4.activity_id
             LEFT JOIN users u4 ON u4.id = a4.user_id
-            WHERE ap4.is_public = true AND u4.is_public = true
+            WHERE ap4.is_public = true 
+            AND u4.is_public = true
+            AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
-            SELECT upm.id, upm.peak_id FROM user_peak_manual upm
+            SELECT upm.id, upm.peak_id 
+            FROM user_peak_manual upm
             LEFT JOIN users u5 ON u5.id = upm.user_id
             WHERE upm.is_public = true AND u5.is_public = true
         )

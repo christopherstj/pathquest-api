@@ -51,6 +51,7 @@ const searchUserPeaks = async (
             SELECT a.user_id, ap.id, ap.timestamp, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
             SELECT user_id, id, timestamp, peak_id, is_public 
             FROM user_peak_manual
@@ -79,6 +80,7 @@ const searchUserPeaks = async (
             SELECT a.user_id, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
             SELECT user_id, peak_id, is_public 
             FROM user_peak_manual

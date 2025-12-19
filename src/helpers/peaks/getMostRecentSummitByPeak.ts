@@ -21,10 +21,13 @@ const getMostRecentSummitByPeak = async (
                     `
                         SELECT ap.activity_id AS id
                         FROM (
-                            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                            SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public 
+                            FROM activities_peaks ap
                             LEFT JOIN activities a ON a.id = ap.activity_id
+                            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                             UNION
-                            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+                            SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public 
+                            FROM user_peak_manual
                         ) ap 
                         WHERE ap.peak_id = $1 AND ap.user_id = $2
                         ORDER BY ap.timestamp DESC 

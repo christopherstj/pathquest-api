@@ -21,10 +21,13 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
             FROM peaks p 
             LEFT JOIN (
                 SELECT ap.id, ap.peak_id FROM (
-                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
+                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public 
+                    FROM activities_peaks ap
                     LEFT JOIN activities a ON a.id = ap.activity_id
+                    WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                     UNION
-                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
+                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public 
+                    FROM user_peak_manual
                 ) ap
                 WHERE ap.user_id = $3
             ) ap2 ON p.id = ap2.peak_id
@@ -46,9 +49,11 @@ const getNearestUnclimbedPeaks = async (userId: string) => {
             0 AS distance, upf.user_id IS NOT NULL AS is_favorited
             FROM peaks p 
             LEFT JOIN (
-                SELECT ap.id, ap.peak_id FROM activities_peaks ap
+                SELECT ap.id, ap.peak_id 
+                FROM activities_peaks ap
                 LEFT JOIN activities a ON ap.activity_id = a.id
                 WHERE a.user_id = $1
+                AND COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             ) ap2 ON p.id = ap2.peak_id
             LEFT JOIN user_peak_favorite upf
             ON p.id = upf.peak_id

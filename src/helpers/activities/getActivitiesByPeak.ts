@@ -19,9 +19,13 @@ const getActivityByPeak = async (
                         ? ", a.vert_profile, a.distance_stream, a.time_stream"
                         : ""
                 } FROM (
-                    SELECT activity_id, peak_id FROM activities_peaks
+                    SELECT activity_id, peak_id 
+                    FROM activities_peaks
+                    WHERE COALESCE(confirmation_status, 'auto_confirmed') != 'denied'
                     UNION
-                    SELECT activity_id, peak_id FROM user_peak_manual WHERE activity_id IS NOT NULL
+                    SELECT activity_id, peak_id 
+                    FROM user_peak_manual 
+                    WHERE activity_id IS NOT NULL
                 ) ap 
                 LEFT JOIN activities a ON ap.activity_id = a.id 
                 WHERE ap.peak_id = $1 AND a.user_id = $2

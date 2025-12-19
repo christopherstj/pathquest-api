@@ -10,6 +10,9 @@ import addChallengeFavorite from "../helpers/challenges/addChallengeFavorite";
 import deleteChallengeFavorite from "../helpers/challenges/deleteChallengeFavorite";
 import updateChallengePrivacy from "../helpers/challenges/updateChallengePrivacy";
 import getChallengeByUserAndId from "../helpers/challenges/getChallengeByUserAndId";
+import getChallengeProgress from "../helpers/challenges/getChallengeProgress";
+import getNextPeakSuggestion from "../helpers/challenges/getNextPeakSuggestion";
+import getChallengeActivity from "../helpers/challenges/getChallengeActivity";
 import { ensureOwner } from "../helpers/authz";
 
 const challenges = (fastify: FastifyInstance, _: any, done: any) => {
@@ -64,16 +67,70 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
 
             const peaks = await getPeaksByChallenge(challengeId, userId);
 
+            // Get progress info including last progress date
+            const progress = userId 
+                ? await getChallengeProgress(challengeId, userId)
+                : { total: 0, completed: 0, lastProgressDate: null, lastProgressCount: 0 };
+
             if (peaks) {
                 const data = await getMostRecentSummitByPeak(peaks, userId);
 
                 reply.code(200).send({
                     challenge,
+                    progress,
                     ...data,
                 });
             } else {
-                reply.code(200).send();
+                reply.code(200).send({
+                    challenge,
+                    progress,
+                });
             }
+        }
+    );
+
+    // Get next peak suggestion for a challenge
+    fastify.get<{
+        Params: {
+            challengeId: string;
+        };
+        Querystring: {
+            lat?: string;
+            lng?: string;
+        };
+    }>(
+        "/:challengeId/next-peak",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const challengeId = parseInt(request.params.challengeId);
+            const userId = request.user?.id;
+
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+
+            const lat = request.query.lat ? parseFloat(request.query.lat) : undefined;
+            const lng = request.query.lng ? parseFloat(request.query.lng) : undefined;
+
+            const suggestion = await getNextPeakSuggestion(challengeId, userId, lat, lng);
+            reply.code(200).send(suggestion);
+        }
+    );
+
+    // Get community activity for a challenge
+    fastify.get<{
+        Params: {
+            challengeId: string;
+        };
+    }>(
+        "/:challengeId/activity",
+        { onRequest: [fastify.optionalAuth] },
+        async function (request, reply) {
+            const challengeId = parseInt(request.params.challengeId);
+
+            const activity = await getChallengeActivity(challengeId);
+            reply.code(200).send(activity);
         }
     );
 

@@ -32,6 +32,13 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `GET /:userId/profile` — Aggregated profile data including stats, accepted challenges, and peaks for map (optional auth, privacy-aware)
 - `GET /:userId/peaks` — Search user's summited peaks with summit counts (optional auth, privacy-aware, supports `search`, `page`, `pageSize` query params)
 - `GET /:userId/summits` — Search user's individual summit entries (optional auth, privacy-aware, supports `search`, `page`, `pageSize` query params)
+- `GET /:userId/journal` — Optimized paginated journal with inline activity data (optional auth, privacy-aware). Query params:
+  - `cursor` - ISO timestamp for cursor-based pagination
+  - `limit` - page size (default 20)
+  - `search` - peak name search
+  - `year` - filter by year
+  - `hasReport` - filter by trip report status (`true`/`false`)
+  - `peakId` - filter by specific peak
 - `GET /:userId/activities-processing` — Owner only
 - `GET /:userId/is-subscribed` — Owner only
 - `PUT /:userId` — Owner only. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (as [lng, lat]), `update_description`, `is_public`
@@ -78,8 +85,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - Users can confirm/deny individual summits or bulk confirm all pending summits
 
 ### Challenges (`/api/challenges`)
-- Public: `GET /` (list), `GET /:challengeId/details`
+- Public: `GET /` (list), `GET /:challengeId/details` (includes progress with lastProgressDate/lastProgressCount), `GET /:challengeId/activity` (community activity stats)
 - Auth-filtered: `GET /search` (supports bounds, search, type, favorites)
+- Auth-required: `GET /:challengeId/next-peak` (closest and easiest unclimbed peak, supports `lat`/`lng` query params for distance calculation)
 - Auth-owner: `POST /incomplete`
 - Favorites (auth + owner): `POST /favorite`, `PUT /favorite`, `DELETE /favorite/:challengeId`
 
@@ -114,11 +122,14 @@ Automatically detected summits may have low confidence scores and need user revi
 ### Challenges Helpers (`helpers/challenges/`)
 - `addChallengeFavorite` - Used in routes
 - `deleteChallengeFavorite` - Used in routes
-- `getAllChallenges` - Used in routes. Filters challenges by bounds based on whether any peak in the challenge is within the viewport (not the challenge center point)
+- `getAllChallenges` - Used in routes. Filters challenges by bounds based on whether any peak in the challenge is within the viewport (not the challenge center point). Returns lastProgressDate and lastProgressCount for each challenge.
 - `getChallengeById` - **UNUSED** - Not imported anywhere (neither routes nor other helpers)
 - `getChallengeByUserAndId` - Used in routes
 - `getChallenges` - Used in routes
 - `getChallengesByPeak` - Used in routes
+- `getChallengeProgress` - Used in routes. Returns total, completed, lastProgressDate, lastProgressCount for a challenge.
+- `getChallengeActivity` - Used in routes. Returns community activity stats: weeklyActiveUsers, weeklySummits, recentCompletions (last 30 days).
+- `getNextPeakSuggestion` - Used in routes. Returns closest and easiest unclimbed peak for a challenge, calculated from user location using Haversine distance formula.
 - `getPeaksByChallenge` - Used in routes
 - `getRecentPeakSummits` - Used internally by `getMostRecentSummitByPeak`
 - `getSubscribedChallenges` - **UNUSED** - Entirely commented out
@@ -167,8 +178,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPublicUserProfile` - Used in routes
 - `getUser` - Used in routes. Returns full user data including `is_public` field
 - `getUserPrivacy` - Used in routes
-- `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, and peak type breakdown (14ers, 13ers, etc.)
+- `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, peak type breakdown (14ers, 13ers, etc.), and climbing streak (consecutive months with at least 1 summit).
 - `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited challenges that are not completed)
+- `getUserJournal` - Optimized single-query journal fetch. Returns paginated summit entries with inline peak data, inline activity context (title, distance, gain), summit numbers, and report status. Supports cursor pagination and filters (search, year, hasReport, peakId). Eliminates N+1 queries by including activity data in the main query.
 - `updateUser` - Used in routes. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (converts [lng, lat] to PostGIS geography), `update_description`, `is_public`
 
 ### Billing Helpers (`helpers/billing/`)

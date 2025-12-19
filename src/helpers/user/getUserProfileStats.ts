@@ -1,5 +1,11 @@
 import getCloudSqlConnection from "../getCloudSqlConnection";
 
+export interface ClimbingStreak {
+    currentStreak: number; // Number of consecutive months with at least 1 summit
+    isActive: boolean; // True if current month has a summit (streak is ongoing)
+    lastSummitMonth: string | null; // ISO date string of the last month with a summit
+}
+
 export interface ProfileStats {
     totalPeaks: number;
     totalSummits: number;
@@ -22,6 +28,7 @@ export interface ProfileStats {
         tenThousanders: number; // 10000-10999 ft (3048-3352m)
         other: number; // Below 10000 ft
     };
+    climbingStreak: ClimbingStreak;
 }
 
 const getUserProfileStats = async (
@@ -120,6 +127,72 @@ const getUserProfileStats = async (
     `;
     const completedResult = await db.query(completedChallengesQuery, [userId, includePrivate]);
 
+    // Calculate climbing streak (consecutive months with at least 1 summit)
+    const streakQuery = `
+        WITH user_summits AS (
+            SELECT ap.timestamp
+            FROM (
+                SELECT a.user_id, ap.timestamp, ap.is_public
+                FROM activities_peaks ap
+                LEFT JOIN activities a ON a.id = ap.activity_id
+                WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
+                UNION
+                SELECT user_id, timestamp, is_public
+                FROM user_peak_manual
+            ) ap
+            WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
+        ),
+        monthly_summits AS (
+            SELECT DISTINCT
+                DATE_TRUNC('month', timestamp) AS month
+            FROM user_summits
+            ORDER BY month DESC
+        )
+        SELECT 
+            ARRAY_AGG(month ORDER BY month DESC) AS months
+        FROM monthly_summits
+    `;
+    const streakResult = await db.query(streakQuery, [userId, includePrivate]);
+    const summitMonths: Date[] = streakResult.rows[0]?.months || [];
+    
+    // Calculate consecutive month streak
+    let currentStreak = 0;
+    let isActive = false;
+    let lastSummitMonth: string | null = null;
+    
+    if (summitMonths.length > 0) {
+        const now = new Date();
+        const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        
+        // Check if the most recent summit is from current or last month
+        const mostRecentSummit = new Date(summitMonths[0]);
+        const mostRecentMonth = new Date(mostRecentSummit.getFullYear(), mostRecentSummit.getMonth(), 1);
+        
+        // Streak is active if most recent summit is in current month
+        isActive = mostRecentMonth.getTime() === currentMonth.getTime();
+        lastSummitMonth = mostRecentMonth.toISOString();
+        
+        // Calculate streak - must be consecutive months starting from current or last month
+        if (mostRecentMonth.getTime() >= lastMonth.getTime()) {
+            let expectedMonth = mostRecentMonth;
+            
+            for (const summitMonthDate of summitMonths) {
+                const summitMonth = new Date(summitMonthDate);
+                const summitMonthStart = new Date(summitMonth.getFullYear(), summitMonth.getMonth(), 1);
+                
+                if (summitMonthStart.getTime() === expectedMonth.getTime()) {
+                    currentStreak++;
+                    // Move to previous month
+                    expectedMonth = new Date(expectedMonth.getFullYear(), expectedMonth.getMonth() - 1, 1);
+                } else if (summitMonthStart.getTime() < expectedMonth.getTime()) {
+                    // Gap found, streak broken
+                    break;
+                }
+            }
+        }
+    }
+
     return {
         totalPeaks: parseInt(stats.total_peaks) || 0,
         totalSummits: parseInt(stats.total_summits) || 0,
@@ -141,6 +214,11 @@ const getUserProfileStats = async (
             elevenThousanders: parseInt(stats.eleven_thousanders) || 0,
             tenThousanders: parseInt(stats.ten_thousanders) || 0,
             other: parseInt(stats.other_peaks) || 0,
+        },
+        climbingStreak: {
+            currentStreak,
+            isActive,
+            lastSummitMonth,
         },
     };
 };

@@ -20,7 +20,9 @@ const getTopPeaksBySummitCount = async (limit: number = 1000): Promise<TopPeak[]
                 FROM activities_peaks ap
                 LEFT JOIN activities a ON a.id = ap.activity_id
                 LEFT JOIN users u ON u.id = a.user_id
-                WHERE ap.is_public = true AND u.is_public = true
+                WHERE ap.is_public = true 
+                AND u.is_public = true
+                AND COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                 UNION ALL
                 SELECT upm.id, upm.peak_id, upm.is_public 
                 FROM user_peak_manual upm

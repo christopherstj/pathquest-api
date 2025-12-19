@@ -82,6 +82,7 @@ const searchUserSummits = async (
                    ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
             SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, 
                    temperature, precipitation, weather_code, cloud_cover, wind_speed, 
@@ -111,6 +112,7 @@ const searchUserSummits = async (
             SELECT a.user_id, ap.id, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
             SELECT user_id, id, peak_id, is_public 
             FROM user_peak_manual

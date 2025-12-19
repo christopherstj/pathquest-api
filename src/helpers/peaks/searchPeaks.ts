@@ -1,7 +1,7 @@
 import Peak from "../../typeDefs/Peak";
 import convertPgNumbers from "../convertPgNumbers";
 import getCloudSqlConnection from "../getCloudSqlConnection";
-import { getPrimaryExpansion } from "../search/expandSearchTerm";
+import { getPrimaryExpansion, stripFillerWords } from "../search/expandSearchTerm";
 
 const searchPeaks = async (
     bounds?: [[number, number], [number, number]],
@@ -16,6 +16,8 @@ const searchPeaks = async (
 
     // Expand search term (e.g., "mt" -> "mount")
     const expandedSearch = search ? getPrimaryExpansion(search) : undefined;
+    // Strip filler words for similarity matching (e.g., "mount whitney" -> "whitney")
+    const strippedSearch = expandedSearch ? stripFillerWords(expandedSearch) : undefined;
     
     // Track parameter indices
     let paramIndex = userId ? 2 : 1;
@@ -24,6 +26,7 @@ const searchPeaks = async (
     let searchParamIndex: number | undefined;
     let searchPatternParamIndex: number | undefined;
     let prefixPatternParamIndex: number | undefined;
+    let strippedSearchParamIndex: number | undefined;
 
     const getWhereClause = () => {
         const clauses = [];
@@ -41,6 +44,15 @@ const searchPeaks = async (
             searchPatternParamIndex = paramIndex + 1;
             prefixPatternParamIndex = paramIndex + 2;
             
+            // Only allocate index for stripped search if it's different from expanded search
+            const useStrippedSimilarity = strippedSearch && strippedSearch !== expandedSearch && strippedSearch.length > 0;
+            if (useStrippedSimilarity) {
+                strippedSearchParamIndex = paramIndex + 3;
+                paramIndex += 4;
+            } else {
+                paramIndex += 3;
+            }
+            
             // Use trigram similarity OR ILIKE for broader matching
             // The % operator uses the default similarity threshold (0.3)
             clauses.push(`(
@@ -48,7 +60,6 @@ const searchPeaks = async (
                 OR p.name ILIKE $${searchPatternParamIndex}
                 OR p.name ILIKE $${prefixPatternParamIndex}
             )`);
-            paramIndex += 3;
         }
         if (state) {
             clauses.push(`p.state = $${paramIndex}`);
@@ -62,15 +73,22 @@ const searchPeaks = async (
 
     // Build the ORDER BY clause
     const getOrderByClause = () => {
-        if (search && searchParamIndex) {
+        if (search && searchParamIndex !== undefined) {
             // Relevancy-based ordering when searching
             // Prioritize exact matches and full phrase matches to ensure "Mount Washington" (NH) 
             // ranks above "Washington Peak" (WA) even if WA peaks are more popular
-            // Score = (exact_match * 0.5) + (full_phrase_match * 0.3) + (similarity * 0.15) + (prefix_match * 0.05)
+            // Use stripped search (without filler words) for similarity to reduce weight of "mount", "peak", etc.
+            // Score = (exact_match * 0.5) + (full_phrase_match * 0.3) + (stripped_similarity * 0.15) + (prefix_match * 0.05)
+            // For similarity, compare against stripped search term to focus on meaningful words like "whitney" not "mount"
+            const useStrippedSimilarity = strippedSearch && strippedSearch !== expandedSearch && strippedSearch.length > 0 && strippedSearchParamIndex !== undefined;
+            
             return `ORDER BY (
                 CASE WHEN LOWER(p.name) = LOWER($${searchParamIndex}) THEN 0.5 ELSE 0 END +
                 CASE WHEN p.name ILIKE $${searchPatternParamIndex} THEN 0.3 ELSE 0 END +
-                similarity(p.name, $${searchParamIndex}) * 0.15 +
+                ${useStrippedSimilarity 
+                    ? `similarity(p.name, $${strippedSearchParamIndex}) * 0.15`
+                    : `similarity(p.name, $${searchParamIndex}) * 0.1`
+                } +
                 CASE WHEN p.name ILIKE $${prefixPatternParamIndex} THEN 0.05 ELSE 0 END +
                 LEAST(COUNT(DISTINCT ap3.id)::float / 1000.0, 0.0)
             ) DESC, p.elevation DESC NULLS LAST`;
@@ -149,11 +167,19 @@ const searchPeaks = async (
               ]
             : []),
         ...(search && expandedSearch
-            ? [
-                  expandedSearch,           // For trigram similarity
-                  `%${expandedSearch}%`,    // For ILIKE contains
-                  `${expandedSearch}%`,     // For ILIKE prefix match
-              ]
+            ? (() => {
+                const useStrippedSimilarity = strippedSearch && strippedSearch !== expandedSearch && strippedSearch.length > 0;
+                const params = [
+                    expandedSearch,           // For trigram similarity (full term)
+                    `%${expandedSearch}%`,    // For ILIKE contains
+                    `${expandedSearch}%`,     // For ILIKE prefix match
+                ];
+                // Only add stripped search parameter if it's different and will be used
+                if (useStrippedSimilarity) {
+                    params.push(strippedSearch);
+                }
+                return params;
+            })()
             : []),
         ...(state ? [state] : []),
         ...(page && pageSize ? [pageSize, (page - 1) * pageSize] : []),

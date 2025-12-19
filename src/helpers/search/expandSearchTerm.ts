@@ -92,6 +92,44 @@ export const getPrimaryExpansion = (search: string): string => {
 };
 
 /**
+ * Common filler words that should be weighted less in similarity matching
+ * These are generic peak/mountain descriptors that don't help distinguish peaks
+ */
+const FILLER_WORDS = [
+    'mount', 'mountain', 'mt', 'mtn', 'mts', 'mountains',
+    'peak', 'peaks', 'pk', 'pks',
+    'point', 'pt', 'pts', 'points',
+    'hill', 'hills',
+    'butte', 'buttes',
+    'ridge', 'ridges',
+    'summit', 'summits',
+    'volcano', 'volcanos', 'volcán', 'volcan',
+    'pico', 'cerro', 'monte',
+];
+
+/**
+ * Strips filler words from a search term to get the meaningful part
+ * Used for similarity matching to reduce weight of generic descriptors
+ * 
+ * @param search - The search term
+ * @returns The search term with filler words removed
+ */
+export const stripFillerWords = (search: string): string => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const words = normalizedSearch.split(/\s+/);
+    
+    // Filter out filler words
+    const meaningfulWords = words.filter(word => !FILLER_WORDS.includes(word));
+    
+    // If all words were filler, return original (edge case)
+    if (meaningfulWords.length === 0) {
+        return normalizedSearch;
+    }
+    
+    return meaningfulWords.join(' ');
+};
+
+/**
  * Builds a SQL pattern for fuzzy matching across all variations
  * Returns patterns suitable for ILIKE matching
  * 

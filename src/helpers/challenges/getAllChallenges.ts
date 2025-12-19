@@ -1,6 +1,11 @@
 import getCloudSqlConnection from "../getCloudSqlConnection";
 import ChallengeProgress from "../../typeDefs/ChallengeProgress";
 
+export interface ChallengeProgressWithLastUpdate extends ChallengeProgress {
+    lastProgressDate: string | null;
+    lastProgressCount: number;
+}
+
 const getAllChallenges = async (
     userId: string,
     types: ("completed" | "in-progress" | "not-started")[],
@@ -16,7 +21,7 @@ const getAllChallenges = async (
     },
     search?: string,
     favoritesOnly: boolean = false
-) => {
+): Promise<ChallengeProgressWithLastUpdate[]> => {
     const db = await getCloudSqlConnection();
 
     const params: any[] = [userId];
@@ -65,22 +70,70 @@ const getAllChallenges = async (
         const clauses = [] as string[];
 
         if (types.includes("completed")) {
-            clauses.push("COUNT(ap2.summitted) = COUNT(p.id)");
+            clauses.push("COUNT(ps.summitted) = COUNT(p.id)");
         }
         if (types.includes("in-progress")) {
             clauses.push(
-                "COUNT(ap2.summitted) < COUNT(p.id) AND COUNT(ap2.summitted) > 0"
+                "COUNT(ps.summitted) < COUNT(p.id) AND COUNT(ps.summitted) > 0"
             );
         }
         if (types.includes("not-started")) {
-            clauses.push("COUNT(ap2.summitted) = 0");
+            clauses.push("COUNT(ps.summitted) = 0");
         }
 
         return clauses.length > 0 ? `HAVING ${clauses.join(" OR ")}` : "";
     };
 
     const query = `
-        SELECT c.id, c.name, ST_Y(c.location_coords::geometry) as center_lat, ST_X(c.location_coords::geometry) as center_long, c.region, COUNT(p.id) AS total, COUNT(ap2.summitted) AS completed 
+        WITH user_summits AS (
+            SELECT ap.peak_id, ap.timestamp::date as summit_date, ap.timestamp
+            FROM (
+                SELECT a.user_id, ap.peak_id, ap.timestamp
+                FROM activities_peaks ap
+                LEFT JOIN activities a ON a.id = ap.activity_id
+                WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
+                UNION ALL
+                SELECT user_id, peak_id, timestamp
+                FROM user_peak_manual
+            ) ap
+            WHERE ap.user_id = $1
+        ),
+        peak_summits AS (
+            SELECT 
+                peak_id, 
+                COUNT(*) > 0 AS summitted,
+                MAX(timestamp) as last_summit_time
+            FROM user_summits
+            GROUP BY peak_id
+        ),
+        challenge_last_progress AS (
+            SELECT 
+                pc.challenge_id,
+                us.summit_date as last_progress_date,
+                COUNT(*) as peaks_on_date
+            FROM user_summits us
+            INNER JOIN peaks_challenges pc ON us.peak_id = pc.peak_id
+            GROUP BY pc.challenge_id, us.summit_date
+        ),
+        challenge_most_recent AS (
+            SELECT DISTINCT ON (challenge_id)
+                challenge_id,
+                last_progress_date,
+                peaks_on_date
+            FROM challenge_last_progress
+            ORDER BY challenge_id, last_progress_date DESC
+        )
+        SELECT 
+            c.id, 
+            c.name, 
+            c.description,
+            ST_Y(c.location_coords::geometry) as center_lat, 
+            ST_X(c.location_coords::geometry) as center_long, 
+            c.region, 
+            COUNT(p.id) AS total, 
+            COUNT(ps.summitted) AS completed,
+            cmr.last_progress_date::text as last_progress_date,
+            COALESCE(cmr.peaks_on_date, 0)::int as last_progress_count
         FROM challenges c 
         ${
             favoritesOnly
@@ -89,25 +142,31 @@ const getAllChallenges = async (
         }
         LEFT JOIN peaks_challenges pc ON pc.challenge_id = c.id 
         LEFT JOIN peaks p ON pc.peak_id = p.id
-        LEFT JOIN 
-            (
-                SELECT ap.peak_id, COUNT(ap.peak_id) > 0 AS summitted FROM (
-                    SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public FROM activities_peaks ap
-                    LEFT JOIN activities a ON a.id = ap.activity_id
-                    UNION
-                    SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public FROM user_peak_manual
-                ) ap
-                WHERE ap.user_id = $1
-                GROUP BY ap.peak_id
-            ) ap2 ON p.id = ap2.peak_id
+        LEFT JOIN peak_summits ps ON p.id = ps.peak_id
+        LEFT JOIN challenge_most_recent cmr ON c.id = cmr.challenge_id
         ${getWhereClause()}
-        GROUP BY c.id, c.name, c.location_coords, c.region
+        GROUP BY c.id, c.name, c.description, c.location_coords, c.region, cmr.last_progress_date, cmr.peaks_on_date
         ${getHavingClauses()}
     `;
 
-    const rows = (await db.query(query, params)).rows as ChallengeProgress[];
+    const rows = (await db.query(query, params)).rows;
 
-    return rows;
+    return rows.map((row: any) => {
+        const total = parseInt(row.total) || 0;
+        return {
+            id: row.id,
+            name: row.name,
+            description: row.description || "",
+            num_peaks: total, // num_peaks is computed from the peaks_challenges join
+            center_lat: row.center_lat,
+            center_long: row.center_long,
+            region: row.region,
+            total,
+            completed: parseInt(row.completed) || 0,
+            lastProgressDate: row.last_progress_date || null,
+            lastProgressCount: parseInt(row.last_progress_count) || 0,
+        };
+    });
 };
 
 export default getAllChallenges;

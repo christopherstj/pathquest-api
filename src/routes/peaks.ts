@@ -25,6 +25,11 @@ import getChallengesByPeak from "../helpers/challenges/getChallengesByPeak";
 import getPublicSummitsByPeak from "../helpers/peaks/getPublicSummitsByPeak";
 import { ensureOwner } from "../helpers/authz";
 import getTopPeaksBySummitCount from "../helpers/peaks/getTopPeaksBySummitCount";
+import getUnconfirmedSummits from "../helpers/peaks/getUnconfirmedSummits";
+import confirmSummit from "../helpers/peaks/confirmSummit";
+import denySummit from "../helpers/peaks/denySummit";
+import confirmAllSummits from "../helpers/peaks/confirmAllSummits";
+import getPeakActivity from "../helpers/peaks/getPeakActivity";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -184,6 +189,17 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
     );
 
+    // Get peak activity (recent summit counts)
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+    }>("/:id/activity", async function (request, reply) {
+        const peakId = request.params.id;
+        const activity = await getPeakActivity(peakId);
+        reply.code(200).send(activity);
+    });
+
     fastify.get<{
         Params: {
             userId: string;
@@ -311,6 +327,91 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             }
             const peaks = await getRecentSummits(userId);
             reply.code(200).send(peaks);
+        }
+    );
+
+    // Get unconfirmed summits that need user review
+    fastify.get<{
+        Querystring: {
+            limit?: string;
+        };
+    }>(
+        "/summits/unconfirmed",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+            const limit = request.query.limit
+                ? parseInt(request.query.limit)
+                : undefined;
+            const summits = await getUnconfirmedSummits(userId, limit);
+            reply.code(200).send(summits);
+        }
+    );
+
+    // Confirm a summit
+    fastify.post<{
+        Params: {
+            id: string;
+        };
+    }>(
+        "/summits/:id/confirm",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+            const summitId = request.params.id;
+            const result = await confirmSummit(summitId, userId);
+            if (!result.success) {
+                reply.code(404).send({ message: result.message });
+                return;
+            }
+            reply.code(200).send({ message: result.message });
+        }
+    );
+
+    // Deny a summit
+    fastify.post<{
+        Params: {
+            id: string;
+        };
+    }>(
+        "/summits/:id/deny",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+            const summitId = request.params.id;
+            const result = await denySummit(summitId, userId);
+            if (!result.success) {
+                reply.code(404).send({ message: result.message });
+                return;
+            }
+            reply.code(200).send({ message: result.message });
+        }
+    );
+
+    // Confirm all unconfirmed summits
+    fastify.post(
+        "/summits/confirm-all",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+            const result = await confirmAllSummits(userId);
+            reply.code(200).send({ message: result.message, count: result.count });
         }
     );
 

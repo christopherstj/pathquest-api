@@ -8,6 +8,7 @@ import activities from "./routes/activities";
 import auth from "./routes/auth";
 import billing from "./routes/billing";
 import user from "./routes/user";
+import dashboard from "./routes/dashboard";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -23,6 +24,7 @@ fastify.register(historicalData, { prefix: "/api/historical-data" });
 fastify.register(peaks, { prefix: "/api/peaks" });
 fastify.register(challenges, { prefix: "/api/challenges" });
 fastify.register(activities, { prefix: "/api/activities" });
+fastify.register(dashboard, { prefix: "/api/dashboard" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

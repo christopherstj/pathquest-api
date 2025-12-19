@@ -1,6 +1,18 @@
 export type Difficulty = "easy" | "moderate" | "hard" | "expert";
 export type ExperienceRating = "amazing" | "good" | "tough" | "epic";
 
+export type ConditionTag = 
+    | "dry" 
+    | "snow" 
+    | "ice" 
+    | "mud" 
+    | "wet" 
+    | "windy" 
+    | "foggy" 
+    | "icy" 
+    | "postholing" 
+    | "clear";
+
 export default interface Summit {
     id: string;
     timestamp: string;
@@ -17,4 +29,5 @@ export default interface Summit {
     timezone?: string;
     difficulty?: Difficulty;
     experience_rating?: ExperienceRating;
+    condition_tags?: ConditionTag[];
 }

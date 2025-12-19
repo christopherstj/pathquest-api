@@ -66,10 +66,16 @@ Access rules:
 - When access is denied, return 404 (not 403) to not reveal existence of private activities
 
 ### Peaks (`/api/peaks`)
-- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /top` (top peaks by summit count for static generation)
-- User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`
-- Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`
-- Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId`
+- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation)
+- User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
+- Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
+- Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array)
+
+#### Summit Confirmation Flow
+Automatically detected summits may have low confidence scores and need user review:
+- `confirmation_status` values: `auto_confirmed` (high confidence), `unconfirmed` (needs review), `user_confirmed` (user approved), `denied` (user rejected)
+- Denied summits are kept for audit but excluded from all summit counts and lists (via `COALESCE(confirmation_status, 'auto_confirmed') != 'denied'` clause)
+- Users can confirm/deny individual summits or bulk confirm all pending summits
 
 ### Challenges (`/api/challenges`)
 - Public: `GET /` (list), `GET /:challengeId/details`
@@ -146,6 +152,11 @@ Access rules:
 - `searchUserPeaks` - Used in routes. Searches user's summited peaks by peak name with pagination, returns peaks with summit counts, first/last summit dates. Results ordered by summit_count descending (then by most recent summit date)
 - `searchUserSummits` - Used in routes. Searches user's individual summit entries by peak name with pagination, returns summits with nested peak data
 - `updateAscent` - Used in routes
+- `getUnconfirmedSummits` - Used in routes. Fetches summits needing user review (confirmation_status = 'unconfirmed'). Optional limit param.
+- `confirmSummit` - Used in routes. Sets confirmation_status to 'user_confirmed'. Verifies summit belongs to user.
+- `denySummit` - Used in routes. Sets confirmation_status to 'denied'. Verifies summit belongs to user. Summit excluded from counts but kept for audit.
+- `confirmAllSummits` - Used in routes. Bulk confirms all unconfirmed summits for a user.
+- `getPeakActivity` - Used in routes. Returns summit counts for a peak (summitsThisWeek, summitsThisMonth, lastSummitDate). Public endpoint for peak activity indicators.
 
 ### User Helpers (`helpers/user/`)
 - `addUserData` - Used in routes

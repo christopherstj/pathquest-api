@@ -30,15 +30,16 @@ const getPublicSummitsByPeak = async (peakId: string): Promise<PublicSummit[]> =
                 ap.experience_rating,
                 ap.timezone,
                 ap.condition_tags,
+                ap.custom_condition_tags,
                 u.id as user_id,
                 u.name as user_name
             FROM (
-                SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, ap.temperature, ap.precipitation, ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone, ap.condition_tags 
+                SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, ap.temperature, ap.precipitation, ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone, ap.condition_tags, ap.custom_condition_tags 
                 FROM activities_peaks ap
                 LEFT JOIN activities a ON a.id = ap.activity_id
                 WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
                 UNION
-                SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, temperature, precipitation, weather_code, cloud_cover, wind_speed, wind_direction, humidity, difficulty, experience_rating, timezone, condition_tags 
+                SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, temperature, precipitation, weather_code, cloud_cover, wind_speed, wind_direction, humidity, difficulty, experience_rating, timezone, condition_tags, custom_condition_tags 
                 FROM user_peak_manual
             ) ap
             LEFT JOIN users u ON u.id = ap.user_id

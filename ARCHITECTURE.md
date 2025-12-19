@@ -76,7 +76,7 @@ Access rules:
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
-- Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array)
+- Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
 
 #### Summit Confirmation Flow
 Automatically detected summits may have low confidence scores and need user review:

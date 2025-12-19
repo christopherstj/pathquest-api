@@ -25,6 +25,8 @@ const getRecentSummits = async (
                 ap1.is_public,
                 ap1.difficulty,
                 ap1.experience_rating,
+                ap1.condition_tags,
+                ap1.custom_condition_tags,
                 a1.timezone
             FROM activities_peaks ap1
             LEFT JOIN activities a1 ON ap1.activity_id = a1.id
@@ -41,6 +43,8 @@ const getRecentSummits = async (
                 is_public,
                 difficulty,
                 experience_rating,
+                condition_tags,
+                custom_condition_tags,
                 timezone
             FROM user_peak_manual
             WHERE user_id = $1

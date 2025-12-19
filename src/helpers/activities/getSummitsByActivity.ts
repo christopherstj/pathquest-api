@@ -7,6 +7,8 @@ export interface SummitWithPeak {
     notes?: string;
     difficulty?: "easy" | "moderate" | "hard" | "expert";
     experience_rating?: "amazing" | "good" | "tough" | "epic";
+    condition_tags?: string[];
+    custom_condition_tags?: string[];
     temperature?: number;
     weather_code?: number;
     precipitation?: number;
@@ -32,6 +34,8 @@ interface DbRow {
     notes?: string;
     difficulty?: string;
     experience_rating?: string;
+    condition_tags?: string[];
+    custom_condition_tags?: string[];
     temperature?: number;
     weather_code?: number;
     precipitation?: number;
@@ -62,6 +66,8 @@ const getSummitsByActivity = async (
                 ap.notes,
                 ap.difficulty,
                 ap.experience_rating,
+                ap.condition_tags,
+                ap.custom_condition_tags,
                 ap.temperature,
                 ap.weather_code,
                 ap.precipitation,
@@ -79,12 +85,14 @@ const getSummitsByActivity = async (
             FROM activities a
             LEFT JOIN (
                 SELECT id, timestamp, activity_id, peak_id, notes, is_public, difficulty, experience_rating,
-                       temperature, weather_code, precipitation, cloud_cover, wind_speed, wind_direction, humidity
+                       temperature, weather_code, precipitation, cloud_cover, wind_speed, wind_direction, humidity,
+                       condition_tags, custom_condition_tags
                 FROM activities_peaks
                 WHERE activity_id = $1
                 UNION ALL
                 SELECT id, timestamp, activity_id, peak_id, notes, is_public, difficulty, experience_rating,
-                       temperature, weather_code, precipitation, cloud_cover, wind_speed, wind_direction, humidity
+                       temperature, weather_code, precipitation, cloud_cover, wind_speed, wind_direction, humidity,
+                       condition_tags, custom_condition_tags
                 FROM user_peak_manual
                 WHERE activity_id = $1
             ) ap ON a.id = ap.activity_id
@@ -102,6 +110,8 @@ const getSummitsByActivity = async (
         notes: row.notes,
         difficulty: row.difficulty as SummitWithPeak["difficulty"],
         experience_rating: row.experience_rating as SummitWithPeak["experience_rating"],
+        condition_tags: row.condition_tags,
+        custom_condition_tags: row.custom_condition_tags,
         temperature: row.temperature,
         weather_code: row.weather_code,
         precipitation: row.precipitation,

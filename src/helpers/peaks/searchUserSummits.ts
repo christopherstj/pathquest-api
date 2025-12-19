@@ -69,6 +69,8 @@ const searchUserSummits = async (
             ap.humidity,
             ap.difficulty,
             ap.experience_rating,
+            ap.condition_tags,
+            ap.custom_condition_tags,
             ap.timezone,
             p.id AS peak_id,
             p.name AS peak_name,
@@ -79,14 +81,14 @@ const searchUserSummits = async (
         FROM (
             SELECT a.user_id, ap.id, ap.timestamp, ap.activity_id, ap.peak_id, ap.notes, ap.is_public, 
                    ap.temperature, ap.precipitation, ap.weather_code, ap.cloud_cover, ap.wind_speed, 
-                   ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone 
+                   ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, ap.condition_tags, ap.custom_condition_tags, a.timezone 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
             WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
             UNION
             SELECT user_id, id, timestamp, activity_id, peak_id, notes, is_public, 
                    temperature, precipitation, weather_code, cloud_cover, wind_speed, 
-                   wind_direction, humidity, difficulty, experience_rating, timezone 
+                   wind_direction, humidity, difficulty, experience_rating, condition_tags, custom_condition_tags, timezone 
             FROM user_peak_manual
         ) ap
         LEFT JOIN peaks p ON ap.peak_id = p.id
@@ -143,6 +145,8 @@ const searchUserSummits = async (
         timezone: row.timezone,
         difficulty: row.difficulty,
         experience_rating: row.experience_rating,
+        condition_tags: row.condition_tags,
+        custom_condition_tags: row.custom_condition_tags,
         peak: {
             id: row.peak_id,
             name: row.peak_name,

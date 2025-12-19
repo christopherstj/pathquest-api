@@ -8,6 +8,7 @@ export interface JournalEntry {
     difficulty?: "easy" | "moderate" | "hard" | "expert";
     experienceRating?: "amazing" | "good" | "tough" | "epic";
     conditionTags?: string[];
+    customConditionTags?: string[];
     isPublic?: boolean;
     timezone?: string;
     hasReport: boolean;
@@ -118,6 +119,7 @@ const getUserJournal = async (
                 ap.difficulty,
                 ap.experience_rating,
                 ap.condition_tags,
+                ap.custom_condition_tags,
                 ap.temperature,
                 ap.weather_code,
                 ap.cloud_cover,
@@ -147,6 +149,7 @@ const getUserJournal = async (
                 upm.difficulty,
                 upm.experience_rating,
                 upm.condition_tags,
+                upm.custom_condition_tags,
                 upm.temperature,
                 upm.weather_code,
                 upm.cloud_cover,
@@ -186,6 +189,7 @@ const getUserJournal = async (
             fs.difficulty,
             fs.experience_rating,
             fs.condition_tags,
+            fs.custom_condition_tags,
             fs.temperature,
             fs.weather_code,
             fs.cloud_cover,
@@ -281,6 +285,7 @@ const getUserJournal = async (
         difficulty: row.difficulty,
         experienceRating: row.experience_rating,
         conditionTags: row.condition_tags,
+        customConditionTags: row.custom_condition_tags,
         isPublic: row.is_public,
         timezone: row.timezone,
         hasReport: row.has_report,

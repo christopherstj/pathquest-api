@@ -9,9 +9,13 @@ export type ConditionTag =
     | "wet" 
     | "windy" 
     | "foggy" 
-    | "icy" 
     | "postholing" 
-    | "clear";
+    | "clear"
+    | "rocky"
+    | "slippery"
+    | "overgrown"
+    | "bushwhack"
+    | "exposed";
 
 export default interface Summit {
     id: string;
@@ -30,4 +34,5 @@ export default interface Summit {
     difficulty?: Difficulty;
     experience_rating?: ExperienceRating;
     condition_tags?: ConditionTag[];
+    custom_condition_tags?: string[];
 }

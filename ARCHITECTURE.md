@@ -159,7 +159,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getUnclimbedPeaks` - Used in routes
 - `removeFavoritePeak` - Used in routes
 - `searchNearestPeaks` - Used in routes
-- `searchPeaks` - Used in routes
+- `searchPeaks` - Used in routes. Fuzzy peak search with relevancy scoring using pg_trgm extension. Expands abbreviations (mt→mount), uses trigram similarity matching, and ranks results by: name similarity (50%), prefix match bonus (30%), and popularity/public summits (20%)
 - `searchUserPeaks` - Used in routes. Searches user's summited peaks by peak name with pagination, returns peaks with summit counts, first/last summit dates. Results ordered by summit_count descending (then by most recent summit date)
 - `searchUserSummits` - Used in routes. Searches user's individual summit entries by peak name with pagination, returns summits with nested peak data
 - `updateAscent` - Used in routes
@@ -168,6 +168,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - `denySummit` - Used in routes. Sets confirmation_status to 'denied'. Verifies summit belongs to user. Summit excluded from counts but kept for audit.
 - `confirmAllSummits` - Used in routes. Bulk confirms all unconfirmed summits for a user.
 - `getPeakActivity` - Used in routes. Returns summit counts for a peak (summitsThisWeek, summitsThisMonth, lastSummitDate). Public endpoint for peak activity indicators.
+
+### Search Helpers (`helpers/search/`)
+- `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.
 
 ### User Helpers (`helpers/user/`)
 - `addUserData` - Used in routes

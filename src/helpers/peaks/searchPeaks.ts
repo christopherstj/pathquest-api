@@ -1,6 +1,7 @@
 import Peak from "../../typeDefs/Peak";
 import convertPgNumbers from "../convertPgNumbers";
 import getCloudSqlConnection from "../getCloudSqlConnection";
+import { getPrimaryExpansion } from "../search/expandSearchTerm";
 
 const searchPeaks = async (
     bounds?: [[number, number], [number, number]],
@@ -13,7 +14,16 @@ const searchPeaks = async (
 ): Promise<Peak[]> => {
     const db = await getCloudSqlConnection();
 
-    let paramIndex = userId ? 2 : 1; // Start at 2 if userId is present (it's $1), otherwise start at 1
+    // Expand search term (e.g., "mt" -> "mount")
+    const expandedSearch = search ? getPrimaryExpansion(search) : undefined;
+    
+    // Track parameter indices
+    let paramIndex = userId ? 2 : 1;
+    
+    // Store search param indices for later use in ORDER BY
+    let searchParamIndex: number | undefined;
+    let searchPatternParamIndex: number | undefined;
+    let prefixPatternParamIndex: number | undefined;
 
     const getWhereClause = () => {
         const clauses = [];
@@ -26,8 +36,19 @@ const searchPeaks = async (
             paramIndex += 4;
         }
         if (search) {
-            clauses.push(`p.name ILIKE $${paramIndex}`);
-            paramIndex += 1;
+            // Store indices for search parameters
+            searchParamIndex = paramIndex;
+            searchPatternParamIndex = paramIndex + 1;
+            prefixPatternParamIndex = paramIndex + 2;
+            
+            // Use trigram similarity OR ILIKE for broader matching
+            // The % operator uses the default similarity threshold (0.3)
+            clauses.push(`(
+                p.name % $${searchParamIndex} 
+                OR p.name ILIKE $${searchPatternParamIndex}
+                OR p.name ILIKE $${prefixPatternParamIndex}
+            )`);
+            paramIndex += 3;
         }
         if (state) {
             clauses.push(`p.state = $${paramIndex}`);
@@ -37,6 +58,21 @@ const searchPeaks = async (
             clauses.push("ap2.id IS NULL");
         }
         return clauses.length > 0 ? "WHERE " + clauses.join(" AND ") : "";
+    };
+
+    // Build the ORDER BY clause
+    const getOrderByClause = () => {
+        if (search && searchParamIndex) {
+            // Relevancy-based ordering when searching
+            // Score = (similarity * 0.5) + (prefix_match * 0.3) + (popularity * 0.2)
+            return `ORDER BY (
+                similarity(p.name, $${searchParamIndex}) * 0.5 +
+                CASE WHEN p.name ILIKE $${prefixPatternParamIndex} THEN 0.3 ELSE 0 END +
+                LEAST(COUNT(DISTINCT ap3.id)::float / 500.0, 0.2)
+            ) DESC, p.elevation DESC NULLS LAST`;
+        }
+        // Default ordering by elevation when not searching
+        return "ORDER BY p.elevation DESC NULLS LAST";
     };
 
     const query = `
@@ -90,7 +126,7 @@ const searchPeaks = async (
         GROUP BY p.name, p.id, p.location_coords, p.elevation, p.county, p.state, p.country${
             userId ? ", upf.user_id" : ""
         }
-        ORDER BY p.elevation DESC NULLS LAST
+        ${getOrderByClause()}
         ${
             page && pageSize
                 ? `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
@@ -108,7 +144,13 @@ const searchPeaks = async (
                   Math.max(bounds[0][0], bounds[1][0]),
               ]
             : []),
-        ...(search ? [`%${search}%`] : []),
+        ...(search && expandedSearch
+            ? [
+                  expandedSearch,           // For trigram similarity
+                  `%${expandedSearch}%`,    // For ILIKE contains
+                  `${expandedSearch}%`,     // For ILIKE prefix match
+              ]
+            : []),
         ...(state ? [state] : []),
         ...(page && pageSize ? [pageSize, (page - 1) * pageSize] : []),
     ];

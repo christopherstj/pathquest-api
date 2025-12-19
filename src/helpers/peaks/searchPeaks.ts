@@ -64,11 +64,15 @@ const searchPeaks = async (
     const getOrderByClause = () => {
         if (search && searchParamIndex) {
             // Relevancy-based ordering when searching
-            // Score = (similarity * 0.5) + (prefix_match * 0.3) + (popularity * 0.2)
+            // Prioritize exact matches and full phrase matches to ensure "Mount Washington" (NH) 
+            // ranks above "Washington Peak" (WA) even if WA peaks are more popular
+            // Score = (exact_match * 0.5) + (full_phrase_match * 0.3) + (similarity * 0.15) + (prefix_match * 0.05)
             return `ORDER BY (
-                similarity(p.name, $${searchParamIndex}) * 0.5 +
-                CASE WHEN p.name ILIKE $${prefixPatternParamIndex} THEN 0.3 ELSE 0 END +
-                LEAST(COUNT(DISTINCT ap3.id)::float / 500.0, 0.2)
+                CASE WHEN LOWER(p.name) = LOWER($${searchParamIndex}) THEN 0.5 ELSE 0 END +
+                CASE WHEN p.name ILIKE $${searchPatternParamIndex} THEN 0.3 ELSE 0 END +
+                similarity(p.name, $${searchParamIndex}) * 0.15 +
+                CASE WHEN p.name ILIKE $${prefixPatternParamIndex} THEN 0.05 ELSE 0 END +
+                LEAST(COUNT(DISTINCT ap3.id)::float / 1000.0, 0.0)
             ) DESC, p.elevation DESC NULLS LAST`;
         }
         // Default ordering by elevation when not searching

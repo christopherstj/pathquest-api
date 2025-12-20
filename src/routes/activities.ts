@@ -7,7 +7,6 @@ import getMostRecentActivities from "../helpers/activities/getMostRecentActiviti
 import searchNearestActivities from "../helpers/activities/searchNearestActivities";
 import deleteActivity from "../helpers/activities/deleteActivity";
 import getActivityOwnerId from "../helpers/activities/getActivityOwnerId";
-import getActivityWithPrivacy from "../helpers/activities/getActivityWithPrivacy";
 import reprocessActivity from "../helpers/activities/reprocessActivity";
 import { ensureOwner } from "../helpers/authz";
 
@@ -93,34 +92,27 @@ const activities = (fastify: FastifyInstance, _: any, done: any) => {
         }
     );
 
+    // Activity detail endpoint - owner only
+    // Per Strava API guidelines: "Strava Data provided by a specific user can only be
+    // displayed or disclosed in your Developer Application to that user."
     fastify.get<{
         Params: {
             activityId: string;
         };
     }>(
         "/:activityId",
-        { onRequest: [fastify.optionalAuth] },
+        { onRequest: [fastify.authenticate] },
         async function (request, reply) {
             const { activityId } = request.params;
-            const requestingUserId = request.user?.id;
 
-            // Get activity privacy information
-            const privacyInfo = await getActivityWithPrivacy(activityId);
+            const ownerId = await getActivityOwnerId(activityId);
 
-            if (!privacyInfo) {
-                reply.code(404).send({ message: "Activity not found" });
-                return;
-            }
-
-            const { ownerId, isActivityPublic, isUserPublic } = privacyInfo;
-            const isOwner = requestingUserId === ownerId;
-
-            // Privacy check:
-            // - If user is private OR activity is private, only owner can access
-            // - If user is public AND activity is public, anyone can access
-            if (!isOwner && (!isUserPublic || !isActivityPublic)) {
-                // Return 404 instead of 403 to not reveal existence of private activities
-                reply.code(404).send({ message: "Activity not found" });
+            // Return 404 if activity doesn't exist or user is not the owner
+            // (Use 404 instead of 403 to not reveal existence of other users' activities)
+            if (!ownerId || !ensureOwner(request, reply, ownerId)) {
+                if (ownerId === null) {
+                    reply.code(404).send({ message: "Activity not found" });
+                }
                 return;
             }
 

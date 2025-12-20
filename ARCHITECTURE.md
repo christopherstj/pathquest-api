@@ -57,21 +57,18 @@ User profiles follow the same privacy model as activities:
 - `GET /search/nearest` — Nearest activities by lat/lng — auth required
 - `GET /search` — Search by bounds/search term — auth required
 - `POST /by-peak` — Activities that summitted a peak `{ peakId }` — auth required
-- `GET /:activityId` — Details + summits (optional auth, privacy-aware: public if both user & activity are public, otherwise owner only)
+- `GET /:activityId` — Details + summits (owner only) — auth required
 - `GET /:activityId/coords` — Activity coords (owner check) — auth required
 - `DELETE /:activityId` — Delete (owner check) — auth required
 - `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check) — auth required
 
 #### Activity Privacy Model
-Activities follow a privacy model with two layers:
-1. **User Privacy** (`users.is_public`): If false, all user's activities are private
-2. **Activity Privacy** (`activities.is_public`): Per-activity visibility control
+**Strava API Compliance**: Per Strava guidelines, "Strava Data provided by a specific user can only be displayed or disclosed in your Developer Application to that user." All activity endpoints are now owner-only.
 
 Access rules:
-- If user is private → only owner can access their activities
-- If activity is private → only owner can access that activity
-- If both user AND activity are public → anyone can access
-- When access is denied, return 404 (not 403) to not reveal existence of private activities
+- Activity detail, coordinates, delete, and reprocess endpoints require authentication and owner verification
+- Non-owners receive 404 (not 403) to not reveal existence of other users' activities
+- Public summit reports (via `getPublicSummitsByPeak`) display PathQuest-derived data only (timestamp, notes, weather, ratings) without `activity_id`
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation)
@@ -153,7 +150,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
-- `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings.
+- `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings. **Note**: `activity_id` is intentionally excluded from the response to comply with Strava API guidelines (Strava data can only be shown to the activity owner).
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
 - `getTopPeaksBySummitCount` - Used in routes (for static generation)

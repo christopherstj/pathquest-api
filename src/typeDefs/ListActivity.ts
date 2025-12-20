@@ -19,8 +19,8 @@ export default interface ListActivity {
     start_date_local: string;
     timezone: string;
     utc_offset: number;
-    start_latlng: number | null;
-    end_latlng: number | null;
+    start_latlng: [number, number] | null;
+    end_latlng: [number, number] | null;
     location_city: null;
     location_state: null;
     location_country: string;

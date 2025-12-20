@@ -40,6 +40,7 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
   - `hasReport` - filter by trip report status (`true`/`false`)
   - `peakId` - filter by specific peak
 - `GET /:userId/activities-processing` — Owner only
+- `GET /:userId/import-status` — Owner only. Returns detailed import progress: totalActivities, processedActivities, pendingActivities, summitsFound, percentComplete, estimatedHoursRemaining, status ('not_started'|'processing'|'complete'), message
 - `GET /:userId/is-subscribed` — Owner only
 - `PUT /:userId` — Owner only. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (as [lng, lat]), `update_description`, `is_public`
 - `DELETE /:userId` — Owner only
@@ -191,11 +192,14 @@ Automatically detected summits may have low confidence scores and need user revi
 - `deleteSubscription` - Used in routes
 
 ### Historical Data Helpers (`helpers/historical-data/`)
-- `addActivityMessages` - Used internally by `getUserHistoricalData`
+- `addActivityMessages` - Used internally by `getUserHistoricalData`. Filters out non-GPS activities (indoor, virtual) at import time to save API calls. Calculates priority scores based on elevation gain, distance, and recency to process high-value activities first.
 - `checkUserHistoricalData` - Used internally by `getUserHistoricalData`
 - `getNextActivities` - Used internally by `getUserHistoricalData`
 - `getUserHistoricalData` - Used in routes
 - `setHistoricalDataFlag` - Used internally by `getUserHistoricalData`
+
+### Import Status (`helpers/user/getImportStatus.ts`)
+- `getImportStatus` - Returns detailed import progress: total/processed/pending activities, summits found, percent complete, estimated hours remaining, status, and user-friendly message. Used by `/users/:userId/import-status` endpoint.
 
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)

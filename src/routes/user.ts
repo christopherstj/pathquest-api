@@ -13,6 +13,7 @@ import searchUserSummits from "../helpers/peaks/searchUserSummits";
 import getStatesWithSummits from "../helpers/peaks/getStatesWithSummits";
 import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 import getUserJournal from "../helpers/user/getUserJournal";
+import getImportStatus from "../helpers/user/getImportStatus";
 import { ensureOwner } from "../helpers/authz";
 
 export default async function user(
@@ -70,6 +71,31 @@ export default async function user(
                 reply.code(404).send("User not found");
             } else {
                 reply.code(200).send({ numProcessing });
+            }
+        }
+    );
+
+    // Import status - detailed progress for historical activity import
+    fastify.get<{
+        Params: {
+            userId: string;
+        };
+    }>(
+        "/:userId/import-status",
+        { onRequest: [fastify.authenticate] },
+        async (request, reply) => {
+            const { userId } = request.params;
+
+            if (!ensureOwner(request, reply, userId)) {
+                return;
+            }
+
+            try {
+                const status = await getImportStatus(userId);
+                reply.code(200).send(status);
+            } catch (error) {
+                console.error("Error getting import status:", error);
+                reply.code(500).send({ message: "Error getting import status" });
             }
         }
     );

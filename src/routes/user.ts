@@ -15,6 +15,9 @@ import getPeakSummitsByUser from "../helpers/peaks/getPeakSummitsByUser";
 import getUserJournal from "../helpers/user/getUserJournal";
 import getImportStatus from "../helpers/user/getImportStatus";
 import { ensureOwner } from "../helpers/authz";
+import getChallengeProgress from "../helpers/challenges/getChallengeProgress";
+import getChallengePeaksForUser from "../helpers/challenges/getChallengePeaksForUser";
+import getChallengeById from "../helpers/challenges/getChallengeById";
 
 export default async function user(
     fastify: FastifyInstance,
@@ -463,6 +466,78 @@ export default async function user(
             } catch (error) {
                 console.error("Error fetching user journal:", error);
                 reply.code(500).send({ message: "Error fetching journal" });
+            }
+        }
+    );
+
+    // User's progress on a specific challenge
+    fastify.get<{
+        Params: {
+            userId: string;
+            challengeId: string;
+        };
+    }>(
+        "/:userId/challenges/:challengeId",
+        { onRequest: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const { userId, challengeId } = request.params;
+            const challengeIdNum = parseInt(challengeId);
+
+            if (isNaN(challengeIdNum)) {
+                reply.code(400).send({ message: "Invalid challenge ID" });
+                return;
+            }
+
+            // Check user privacy - if not owner and user is private, return 404
+            const isOwner = request.user?.id === userId;
+            const isPublic = await getUserPrivacy(userId);
+            
+            if (isPublic === null) {
+                reply.code(404).send({ message: "User not found" });
+                return;
+            }
+
+            if (!isOwner && !isPublic) {
+                reply.code(404).send({ message: "Profile not found" });
+                return;
+            }
+
+            try {
+                // Get challenge details
+                const challenge = await getChallengeById(challengeIdNum);
+                if (!challenge) {
+                    reply.code(404).send({ message: "Challenge not found" });
+                    return;
+                }
+
+                // Get user info
+                const userInfo = await getPublicUserProfile(userId);
+                if (!userInfo) {
+                    reply.code(404).send({ message: "User not found" });
+                    return;
+                }
+
+                // Get progress and peaks with summit status
+                // Only include public summits for privacy
+                const [progress, peaks] = await Promise.all([
+                    getChallengeProgress(challengeIdNum, userId),
+                    getChallengePeaksForUser(challengeIdNum, userId),
+                ]);
+
+                reply.code(200).send({
+                    challenge,
+                    progress,
+                    peaks,
+                    user: {
+                        id: userInfo.id,
+                        name: userInfo.name,
+                        pic: userInfo.pic,
+                    },
+                    isOwner,
+                });
+            } catch (error) {
+                console.error("Error fetching user challenge progress:", error);
+                reply.code(500).send({ message: "Error fetching challenge progress" });
             }
         }
     );

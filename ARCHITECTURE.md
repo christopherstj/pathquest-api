@@ -126,6 +126,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getChallenges` - Used in routes
 - `getChallengesByPeak` - Used in routes
 - `getChallengeProgress` - Used in routes. Returns total, completed, lastProgressDate, lastProgressCount for a challenge.
+- `getChallengePeaksForUser` - Used in user routes. Returns peaks for a challenge with `is_summited` and `summit_date` for a specific user. Only includes public summit data per Strava API compliance. Used by `/users/:userId/challenges/:challengeId` endpoint.
 - `getChallengeActivity` - Used in routes. Returns community activity stats: weeklyActiveUsers, weeklySummits, recentCompletions (last 30 days).
 - `getNextPeakSuggestion` - Used in routes. Returns closest and easiest unclimbed peak for a challenge, calculated from user location using Haversine distance formula.
 - `getPeaksByChallenge` - Used in routes
@@ -197,6 +198,16 @@ Automatically detected summits may have low confidence scores and need user revi
 
 ### Import Status (`helpers/user/getImportStatus.ts`)
 - `getImportStatus` - Returns detailed import progress: total/processed/pending activities, summits found, percent complete, estimated hours remaining, status, and user-friendly message. Used by `/users/:userId/import-status` endpoint.
+
+### User Challenge Progress
+- `GET /users/:userId/challenges/:challengeId` - Returns a user's progress on a specific challenge. Response includes:
+  - `challenge`: Challenge details (name, region, num_peaks)
+  - `progress`: User's progress (completed, total, lastProgressDate, lastProgressCount)
+  - `peaks`: Array of peaks with `is_summited` and `summit_date` fields (only public summits)
+  - `user`: User info (id, name, pic)
+  - `isOwner`: Boolean indicating if requester owns this profile
+  
+  Respects user privacy settings - returns 404 for private users if not owner.
 
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)

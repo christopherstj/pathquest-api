@@ -5,15 +5,19 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
  * Gets challenges the user has "accepted" - defined as:
  * - User has favorited the challenge (stored in user_challenge_favorite table)
  * 
- * Excludes completed challenges (where all peaks have been summited)
+ * @param userId - The user ID to get challenges for
+ * @param includePrivate - Whether to include private summits in progress calculation
+ * @param includeCompleted - Whether to include completed challenges (default: false for backwards compat)
  */
 const getUserAcceptedChallenges = async (
     userId: string,
-    includePrivate: boolean = false
+    includePrivate: boolean = false,
+    includeCompleted: boolean = false
 ): Promise<ChallengeProgress[]> => {
     const db = await getCloudSqlConnection();
 
-    // This query finds challenges that are favorited by the user AND not completed
+    // This query finds challenges that are favorited by the user
+    // Optionally filters out completed challenges based on includeCompleted param
     const query = `
         WITH user_summit_peaks AS (
             SELECT DISTINCT ap.peak_id
@@ -53,17 +57,20 @@ const getUserAcceptedChallenges = async (
             center_long,
             total,
             completed,
-            is_favorited
+            is_favorited,
+            (completed >= total) AS is_completed
         FROM challenge_progress
         WHERE 
             total > 0 
-            AND completed < total
+            AND ($3 OR completed < total)
         ORDER BY 
+            -- Sort completed challenges to the end, then by progress percentage
+            (completed >= total) ASC,
             (completed::float / total::float) DESC,
             name ASC
     `;
 
-    const result = await db.query(query, [userId, includePrivate]);
+    const result = await db.query(query, [userId, includePrivate, includeCompleted]);
 
     return result.rows.map(row => ({
         id: row.id,
@@ -76,6 +83,7 @@ const getUserAcceptedChallenges = async (
         num_peaks: parseInt(row.total),
         total: parseInt(row.total),
         completed: parseInt(row.completed),
+        is_completed: row.is_completed,
     }));
 };
 

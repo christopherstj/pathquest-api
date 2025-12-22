@@ -180,7 +180,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getUser` - Used in routes. Returns full user data including `is_public` field
 - `getUserPrivacy` - Used in routes
 - `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, peak type breakdown (14ers, 13ers, etc.), and climbing streak (consecutive months with at least 1 summit).
-- `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited challenges that are not completed)
+- `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited). Parameters: `userId`, `includePrivate` (boolean), `includeCompleted` (boolean, default false). When `includeCompleted=true`, returns both in-progress and completed challenges with `is_completed` flag. Profile endpoint passes `includeCompleted=true` to show all favorited challenges.
 - `getUserJournal` - Optimized single-query journal fetch. Returns paginated summit entries with inline peak data, inline activity context (title, distance, gain), summit numbers, and report status. Supports cursor pagination and filters (search, year, hasReport, peakId). Eliminates N+1 queries by including activity data in the main query.
 - `updateUser` - Used in routes. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (converts [lng, lat] to PostGIS geography), `update_description`, `is_public`
 

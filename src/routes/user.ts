@@ -243,9 +243,10 @@ export default async function user(
                 }
 
                 // Get profile stats, accepted challenges, and peaks for map
+                // Always include completed challenges for profile view (both in-progress and completed)
                 const [stats, acceptedChallenges, peaksForMap] = await Promise.all([
                     getUserProfileStats(userId, includePrivate),
-                    getUserAcceptedChallenges(userId, includePrivate),
+                    getUserAcceptedChallenges(userId, includePrivate, true),
                     getPeakSummitsByUser(userId, includePrivate),
                 ]);
 

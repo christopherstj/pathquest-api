@@ -91,7 +91,7 @@ const searchUserPeaks = async (
             break;
     }
 
-    // Query for peaks with summit counts
+    // Query for peaks with summit counts (user + public)
     const query = `
         SELECT 
             p.id,
@@ -104,7 +104,25 @@ const searchUserPeaks = async (
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] AS location_coords,
             COUNT(ap.id) AS summit_count,
             MIN(ap.timestamp) AS first_summit_date,
-            MAX(ap.timestamp) AS last_summit_date
+            MAX(ap.timestamp) AS last_summit_date,
+            (
+                SELECT COUNT(DISTINCT pub.id)
+                FROM (
+                    SELECT ap4.id, ap4.peak_id 
+                    FROM activities_peaks ap4
+                    LEFT JOIN activities a4 ON a4.id = ap4.activity_id
+                    LEFT JOIN users u4 ON u4.id = a4.user_id
+                    WHERE ap4.is_public = true 
+                    AND u4.is_public = true
+                    AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
+                    UNION
+                    SELECT upm.id, upm.peak_id 
+                    FROM user_peak_manual upm
+                    LEFT JOIN users u5 ON u5.id = upm.user_id
+                    WHERE upm.is_public = true AND u5.is_public = true
+                ) pub
+                WHERE pub.peak_id = p.id
+            ) AS public_summits
         FROM (
             SELECT a.user_id, ap.id, ap.timestamp, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
@@ -207,6 +225,7 @@ const searchUserPeaks = async (
         country: row.country,
         location_coords: row.location_coords,
         summit_count: parseInt(row.summit_count) || 0,
+        public_summits: parseInt(row.public_summits) || 0,
         first_summit_date: row.first_summit_date,
         last_summit_date: row.last_summit_date,
     }));

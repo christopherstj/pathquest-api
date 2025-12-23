@@ -109,7 +109,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getMostRecentActivities` - Used in routes
 - `getPeaksByActivity` - **UNUSED** - Previously used by `getActivityDetails`, now replaced by `getSummitsByActivity`
 - `getReprocessingStatus` - Used internally by `reprocessActivity`
-- `getSummitsByActivity` - Used internally by `getActivityDetails`. Returns all summits for an activity with full details (weather, notes, difficulty, experience rating) and peak data
+- `getSummitsByActivity` - Used internally by `getActivityDetails`. Returns all summits for an activity with full details (weather, notes, difficulty, experience rating) and peak data including `public_summits` count
 - `getSummitsByPeakAndActivity` - **UNUSED** - Previously used by `getActivityDetails`, now replaced by `getSummitsByActivity`
 - `reprocessActivity` - Used in routes
 - `searchActivities` - Used in routes
@@ -129,7 +129,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getChallengePeaksForUser` - Used in user routes. Returns peaks for a challenge with `is_summited` and `summit_date` for a specific user. Only includes public summit data per Strava API compliance. Used by `/users/:userId/challenges/:challengeId` endpoint.
 - `getChallengeActivity` - Used in routes. Returns community activity stats: weeklyActiveUsers, weeklySummits, recentCompletions (last 30 days).
 - `getNextPeakSuggestion` - Used in routes. Returns closest and easiest unclimbed peak for a challenge, calculated from user location using Haversine distance formula.
-- `getPeaksByChallenge` - Used in routes
+- `getPeaksByChallenge` - Used in routes. Returns peaks for a challenge with user's summit count and `public_summits` count
 - `getRecentPeakSummits` - Used internally by `getMostRecentSummitByPeak`
 - `getSubscribedChallenges` - **UNUSED** - Entirely commented out
 - `getUncompletedChallenges` - Used in routes
@@ -149,7 +149,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakById` - Used in routes
 - `getPeaks` - Used in routes
 - `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
-- `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
+- `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data and `public_summits` count. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings. **Note**: `activity_id` is intentionally excluded from the response to comply with Strava API guidelines (Strava data can only be shown to the activity owner).
 - `getRecentSummits` - Used in routes
@@ -157,9 +157,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getTopPeaksBySummitCount` - Used in routes (for static generation)
 - `getUnclimbedPeaks` - Used in routes
 - `removeFavoritePeak` - Used in routes
-- `searchNearestPeaks` - Used in routes
-- `searchPeaks` - Used in routes. Fuzzy peak search with relevancy scoring using pg_trgm extension. Expands abbreviations (mt→mount), uses trigram similarity matching, and ranks results by: name similarity (50%), prefix match bonus (30%), and popularity/public summits (20%)
-- `searchUserPeaks` - Used in routes. Searches user's summited peaks by peak name with pagination, returns peaks with summit counts, first/last summit dates. Results ordered by summit_count descending (then by most recent summit date)
+- `searchNearestPeaks` - Used in routes. Returns peaks sorted by distance with user's summit count and `public_summits` count
+- `searchPeaks` - Used in routes. Fuzzy peak search with relevancy scoring using pg_trgm extension. Expands abbreviations (mt→mount), uses trigram similarity matching, and ranks results by: name similarity (50%), prefix match bonus (30%), and popularity/public summits (20%). Returns `public_summits` count
+- `searchUserPeaks` - Used in routes. Searches user's summited peaks by peak name with pagination, returns peaks with summit counts (`summit_count`), `public_summits`, first/last summit dates. Results ordered by summit_count descending (then by most recent summit date)
 - `searchUserSummits` - Used in routes. Searches user's individual summit entries by peak name with pagination, returns summits with nested peak data
 - `updateAscent` - Used in routes
 - `getUnconfirmedSummits` - Used in routes. Fetches summits needing user review (confirmation_status = 'unconfirmed'). Optional limit param.

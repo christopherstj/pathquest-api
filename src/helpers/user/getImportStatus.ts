@@ -102,13 +102,18 @@ const getImportStatus = async (userId: string): Promise<ImportStatus> => {
             : 0;
 
     // Determine status
+    // Key insight: if there are no pending activities, we're NOT processing
+    // "processing" should only show when there are activities actually waiting
     let status: ImportStatus["status"];
-    if (pendingActivities === 0 && historicalDataProcessed) {
-        status = "complete";
-    } else if (completedActivities === 0 && pendingActivities === 0) {
-        status = "not_started";
-    } else {
+    if (pendingActivities > 0) {
+        // There are activities waiting to be processed
         status = "processing";
+    } else if (completedActivities > 0 || historicalDataProcessed) {
+        // No pending, but we have processed some OR the flag is set
+        status = "complete";
+    } else {
+        // No pending, no completed, no flag - never started
+        status = "not_started";
     }
 
     // Calculate estimated hours remaining

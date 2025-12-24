@@ -109,6 +109,7 @@ const getSummitsByActivity = async (
                        condition_tags, custom_condition_tags
                 FROM activities_peaks
                 WHERE activity_id = $1
+                  AND COALESCE(confirmation_status, 'auto_confirmed') != 'denied'
                 UNION ALL
                 SELECT id, timestamp, activity_id, peak_id, notes, is_public, difficulty, experience_rating,
                        temperature, weather_code, precipitation, cloud_cover, wind_speed, wind_direction, humidity,

@@ -25,6 +25,7 @@ import getChallengesByPeak from "../helpers/challenges/getChallengesByPeak";
 import getPublicSummitsByPeak from "../helpers/peaks/getPublicSummitsByPeak";
 import { ensureOwner } from "../helpers/authz";
 import getTopPeaksBySummitCount from "../helpers/peaks/getTopPeaksBySummitCount";
+import getRecentPublicSummits from "../helpers/peaks/getRecentPublicSummits";
 import getUnconfirmedSummits from "../helpers/peaks/getUnconfirmedSummits";
 import confirmSummit from "../helpers/peaks/confirmSummit";
 import denySummit from "../helpers/peaks/denySummit";
@@ -359,6 +360,21 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             reply.code(200).send(peaks);
         }
     );
+
+    // Get most recent public summits across entire community (no auth)
+    fastify.get<{
+        Querystring: {
+            limit?: string;
+        };
+    }>("/summits/public/recent", async function (request, reply) {
+        const limit = parseInt(request.query.limit ?? "5");
+        const safeLimit = Number.isFinite(limit)
+            ? Math.max(1, Math.min(limit, 25))
+            : 5;
+
+        const summits = await getRecentPublicSummits(safeLimit);
+        reply.code(200).send(summits);
+    });
 
     // Get unconfirmed summits that need user review
     fastify.get<{

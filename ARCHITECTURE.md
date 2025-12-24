@@ -68,10 +68,11 @@ User profiles follow the same privacy model as activities:
 Access rules:
 - Activity detail, coordinates, delete, and reprocess endpoints require authentication and owner verification
 - Non-owners receive 404 (not 403) to not reveal existence of other users' activities
+- Activity detail summits exclude denied low-confidence matches (`confirmation_status = 'denied'`)
 - Public summit reports (via `getPublicSummitsByPeak`) display PathQuest-derived data only (timestamp, notes, weather, ratings) without `activity_id`
 
 ### Peaks (`/api/peaks`)
-- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation)
+- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
@@ -83,7 +84,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - Users can confirm/deny individual summits or bulk confirm all pending summits
 
 ### Challenges (`/api/challenges`)
-- Public: `GET /` (list), `GET /:challengeId/details` (includes progress with lastProgressDate/lastProgressCount), `GET /:challengeId/activity` (community activity stats)
+- Public: `GET /` (list), `GET /popular` (hybrid popularity ranking; does not return popularity counts), `GET /:challengeId/details` (includes progress with lastProgressDate/lastProgressCount), `GET /:challengeId/activity` (community activity stats)
 - Auth-filtered: `GET /search` (supports bounds, search, type, favorites)
 - Auth-required: `GET /:challengeId/next-peak` (closest and easiest unclimbed peak, supports `lat`/`lng` query params for distance calculation)
 - Auth-owner: `POST /incomplete`
@@ -128,6 +129,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getChallengeProgress` - Used in routes. Returns total, completed, lastProgressDate, lastProgressCount for a challenge.
 - `getChallengePeaksForUser` - Used in user routes. Returns peaks for a challenge with `is_summited` and `summit_date` for a specific user. Only includes public summit data per Strava API compliance. Used by `/users/:userId/challenges/:challengeId` endpoint.
 - `getChallengeActivity` - Used in routes. Returns community activity stats: weeklyActiveUsers, weeklySummits, recentCompletions (last 30 days).
+- `getPopularChallenges` - Used in routes. Returns challenges ordered by hybrid popularity (public favorites + recent activity). Popularity counts are used for ordering only and are not returned.
 - `getNextPeakSuggestion` - Used in routes. Returns closest and easiest unclimbed peak for a challenge, calculated from user location using Haversine distance formula.
 - `getPeaksByChallenge` - Used in routes. Returns peaks for a challenge with user's summit count and `public_summits` count
 - `getRecentPeakSummits` - Used internally by `getMostRecentSummitByPeak`
@@ -152,6 +154,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data and `public_summits` count. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings. **Note**: `activity_id` is intentionally excluded from the response to comply with Strava API guidelines (Strava data can only be shown to the activity owner).
+- `getRecentPublicSummits` - Used in routes. Returns most recent public summits across the entire community, including `peak_name`, with no `activity_id` (Strava compliance).
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
 - `getTopPeaksBySummitCount` - Used in routes (for static generation)

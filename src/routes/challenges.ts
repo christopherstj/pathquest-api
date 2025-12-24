@@ -13,6 +13,7 @@ import getChallengeByUserAndId from "../helpers/challenges/getChallengeByUserAnd
 import getChallengeProgress from "../helpers/challenges/getChallengeProgress";
 import getNextPeakSuggestion from "../helpers/challenges/getNextPeakSuggestion";
 import getChallengeActivity from "../helpers/challenges/getChallengeActivity";
+import getPopularChallenges from "../helpers/challenges/getPopularChallenges";
 import { ensureOwner } from "../helpers/authz";
 
 const challenges = (fastify: FastifyInstance, _: any, done: any) => {
@@ -49,6 +50,21 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
         const search = request.query.search;
 
         const challenges = await getChallenges(page, perPage, search);
+        reply.code(200).send(challenges);
+    });
+
+    // Get "popular" challenges (hybrid ranking). Public endpoint; does not expose popularity counts.
+    fastify.get<{
+        Querystring: {
+            limit?: string;
+        };
+    }>("/popular", async function (request, reply) {
+        const limit = parseInt(request.query.limit ?? "5");
+        const safeLimit = Number.isFinite(limit)
+            ? Math.max(1, Math.min(limit, 25))
+            : 5;
+
+        const challenges = await getPopularChallenges(safeLimit);
         reply.code(200).send(challenges);
     });
 

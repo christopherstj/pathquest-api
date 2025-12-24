@@ -68,11 +68,10 @@ User profiles follow the same privacy model as activities:
 Access rules:
 - Activity detail, coordinates, delete, and reprocess endpoints require authentication and owner verification
 - Non-owners receive 404 (not 403) to not reveal existence of other users' activities
-- Activity detail summits exclude denied low-confidence matches (`confirmation_status = 'denied'`)
 - Public summit reports (via `getPublicSummitsByPeak`) display PathQuest-derived data only (timestamp, notes, weather, ratings) without `activity_id`
 
 ### Peaks (`/api/peaks`)
-- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
+- Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /:id/public-summits` (cursor-based paginated public summits; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ summits, nextCursor, totalCount }`), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
@@ -154,6 +153,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data and `public_summits` count. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings. **Note**: `activity_id` is intentionally excluded from the response to comply with Strava API guidelines (Strava data can only be shown to the activity owner).
+- `getPublicSummitsByPeakCursor` - Cursor-based pagination for public summits. Returns paginated summits ordered by timestamp DESC (most recent first). Supports `cursor` (ISO timestamp) and `limit` (default 20, max 100) filters. Returns `{ summits, nextCursor, totalCount }`. Used by `/peaks/:id/public-summits` endpoint for efficient infinite scrolling of peaks with hundreds of summits. Total count is only calculated on the first page to avoid expensive count queries on every page load.
 - `getRecentPublicSummits` - Used in routes. Returns most recent public summits across the entire community, including `peak_name`, with no `activity_id` (Strava compliance).
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes

@@ -23,6 +23,7 @@ import searchPeaks from "../helpers/peaks/searchPeaks";
 import Peak from "../typeDefs/Peak";
 import getChallengesByPeak from "../helpers/challenges/getChallengesByPeak";
 import getPublicSummitsByPeak from "../helpers/peaks/getPublicSummitsByPeak";
+import getPublicSummitsByPeakCursor from "../helpers/peaks/getPublicSummitsByPeakCursor";
 import { ensureOwner } from "../helpers/authz";
 import getTopPeaksBySummitCount from "../helpers/peaks/getTopPeaksBySummitCount";
 import getRecentPublicSummits from "../helpers/peaks/getRecentPublicSummits";
@@ -190,6 +191,36 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             }
         }
     );
+
+    // Get public summits with cursor pagination
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+        Querystring: {
+            cursor?: string;
+            limit?: string;
+        };
+    }>("/:id/public-summits", async function (request, reply) {
+        const peakId = request.params.id;
+        const cursor = request.query.cursor;
+        const limit = request.query.limit ? parseInt(request.query.limit) : 20;
+        const safeLimit = Number.isFinite(limit) && limit > 0 && limit <= 100
+            ? limit
+            : 20;
+
+        try {
+            const result = await getPublicSummitsByPeakCursor(peakId, {
+                cursor,
+                limit: safeLimit,
+            });
+
+            reply.code(200).send(result);
+        } catch (error) {
+            console.error("Error fetching public summits:", error);
+            reply.code(500).send({ message: "Error fetching public summits" });
+        }
+    });
 
     // Get peak activity (recent summit counts)
     fastify.get<{

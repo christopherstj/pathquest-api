@@ -20,12 +20,13 @@
     },
     "homepage": "https://github.com/christopherstj/pathquest-api#readme",
     "devDependencies": {
-        "jsonwebtoken": "^9.0.3",
+        "@types/jsonwebtoken": "^9.0.7",
         "nodemon": "^3.1.7",
         "ts-node": "^10.9.2"
     },
     "dependencies": {
         "@fastify/jwt": "^9.0.1",
+        "jsonwebtoken": "^9.0.2",
         "@google-cloud/cloud-sql-connector": "^1.4.0",
         "@google-cloud/pubsub": "^4.10.0",
         "@googlemaps/google-maps-services-js": "^3.4.0",

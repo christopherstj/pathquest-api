@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import { decode } from "next-auth/jwt";
 import { FastifyReply, FastifyRequest } from "fastify";
+import { isPathQuestMobileToken, verifyMobileAccessToken } from "../helpers/auth";
 
 type AuthenticatedUser = {
     id: string;
@@ -20,6 +21,8 @@ declare module "fastify" {
     }
 }
 
+const IS_DEVELOPMENT = process.env.NODE_ENV === "development";
+
 const getBearerToken = (request: FastifyRequest) => {
     const header = request.headers.authorization;
     if (!header || !header.startsWith("Bearer ")) {
@@ -29,7 +32,7 @@ const getBearerToken = (request: FastifyRequest) => {
 };
 
 /**
- * Checks if a token is a Google ID token (not a NextAuth JWT).
+ * Checks if a token is a Google ID token (not a NextAuth JWT or PathQuest mobile token).
  * Google ID tokens have an 'iss' field that's a Google domain or service account email.
  */
 const isGoogleIdToken = (token: string): boolean => {
@@ -37,10 +40,10 @@ const isGoogleIdToken = (token: string): boolean => {
         // Decode without verification to check the issuer
         const parts = token.split(".");
         if (parts.length !== 3) return false;
-        
+
         const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
         const issuer = payload.iss;
-        
+
         // Google ID tokens have issuers like:
         // - https://accounts.google.com
         // - service-account@project.iam.gserviceaccount.com
@@ -48,22 +51,22 @@ const isGoogleIdToken = (token: string): boolean => {
         return (
             typeof issuer === "string" &&
             (issuer.includes("google.com") ||
-             issuer.includes("gserviceaccount.com") ||
-             issuer.startsWith("https://accounts.google.com"))
+                issuer.includes("gserviceaccount.com") ||
+                issuer.startsWith("https://accounts.google.com"))
         );
     } catch {
         return false;
     }
 };
 
-const decodeToken = async (token: string) => {
+const decodeNextAuthToken = async (token: string) => {
     return decode({
         token,
         secret: process.env.JWT_SECRET ?? "",
     });
 };
 
-const buildUser = (decoded: any): AuthenticatedUser | null => {
+const buildUserFromNextAuth = (decoded: any): AuthenticatedUser | null => {
     if (!decoded?.sub) {
         return null;
     }
@@ -76,7 +79,30 @@ const buildUser = (decoded: any): AuthenticatedUser | null => {
     };
 };
 
+const buildUserFromMobileToken = (decoded: ReturnType<typeof verifyMobileAccessToken>): AuthenticatedUser | null => {
+    if (!decoded?.sub) {
+        return null;
+    }
+
+    return {
+        id: decoded.sub,
+        email: decoded.email ?? null,
+        name: decoded.name ?? null,
+        isPublic: decoded.is_public ?? null,
+    };
+};
+
+/**
+ * Build user from x-user-* headers.
+ * NOTE: This is only allowed in development mode for security reasons.
+ * In production, all requests must use verified tokens.
+ */
 const buildUserFromHeaders = (request: FastifyRequest): AuthenticatedUser | null => {
+    // SECURITY: Header-based auth is only allowed in development
+    if (!IS_DEVELOPMENT) {
+        return null;
+    }
+
     const userId = request.headers["x-user-id"];
     if (!userId) return null;
     const email = request.headers["x-user-email"];
@@ -107,6 +133,40 @@ const buildUserFromHeaders = (request: FastifyRequest): AuthenticatedUser | null
     };
 };
 
+/**
+ * Attempts to authenticate a token, trying multiple strategies in order:
+ * 1. PathQuest Mobile token (if issuer is "pathquest-mobile")
+ * 2. NextAuth JWT (default for web clients)
+ * 
+ * Google ID tokens are rejected (legacy Vercel OIDC flow, no longer supported).
+ */
+const authenticateToken = async (token: string, fastify: any): Promise<AuthenticatedUser | null> => {
+    // Try PathQuest mobile token first
+    if (isPathQuestMobileToken(token)) {
+        const decoded = verifyMobileAccessToken(token);
+        if (decoded) {
+            return buildUserFromMobileToken(decoded);
+        }
+        fastify.log.warn("Invalid PathQuest mobile token");
+        return null;
+    }
+
+    // Reject Google ID tokens (legacy Vercel OIDC flow)
+    if (isGoogleIdToken(token)) {
+        fastify.log.warn("Google ID tokens are no longer supported - use NextAuth JWT or PathQuest mobile token");
+        return null;
+    }
+
+    // Try NextAuth JWT
+    try {
+        const decoded = await decodeNextAuthToken(token);
+        return buildUserFromNextAuth(decoded);
+    } catch (error) {
+        fastify.log.warn({ err: error }, "Failed to decode NextAuth token");
+        return null;
+    }
+};
+
 const authPlugin = fp(async (fastify, _opts) => {
     fastify.decorateRequest("user");
 
@@ -114,42 +174,26 @@ const authPlugin = fp(async (fastify, _opts) => {
         "authenticate",
         async (request: FastifyRequest, reply: FastifyReply) => {
             const token = getBearerToken(request);
+            
+            // In development only, allow header-based auth
             const headerUser = buildUserFromHeaders(request);
-
-            if (!token && !headerUser) {
-                reply.code(401).send({ message: "Unauthorized" });
-                return;
-            }
-
             if (headerUser) {
                 request.user = headerUser;
                 return;
             }
 
-            // Google ID tokens can't be decoded as NextAuth JWTs
-            // They're validated by Google IAM, but we need x-user-* headers for user info
-            if (isGoogleIdToken(token!)) {
-                fastify.log.warn(
-                    "Google ID token provided without x-user-* headers - cannot determine user identity"
-                );
+            if (!token) {
                 reply.code(401).send({ message: "Unauthorized" });
                 return;
             }
 
-            try {
-                const decoded = await decodeToken(token!);
-                const user = buildUser(decoded);
-
-                if (!user) {
-                    reply.code(401).send({ message: "Unauthorized" });
-                    return;
-                }
-
-                request.user = user;
-            } catch (error) {
-                fastify.log.error(error);
+            const user = await authenticateToken(token, fastify);
+            if (!user) {
                 reply.code(401).send({ message: "Unauthorized" });
+                return;
             }
+
+            request.user = user;
         }
     );
 
@@ -157,8 +201,9 @@ const authPlugin = fp(async (fastify, _opts) => {
         "optionalAuth",
         async (request: FastifyRequest, reply: FastifyReply) => {
             const token = getBearerToken(request);
-            const headerUser = buildUserFromHeaders(request);
 
+            // In development only, allow header-based auth
+            const headerUser = buildUserFromHeaders(request);
             if (headerUser) {
                 request.user = headerUser;
                 return;
@@ -168,27 +213,11 @@ const authPlugin = fp(async (fastify, _opts) => {
                 return;
             }
 
-            // Skip NextAuth decoding for Google ID tokens (they're validated by Google IAM)
-            if (isGoogleIdToken(token)) {
-                // Google IAM validates the token, but we can't extract user info from it
-                // User info should come from x-user-* headers instead
-                return;
+            const user = await authenticateToken(token, fastify);
+            if (user) {
+                request.user = user;
             }
-
-            try {
-                const decoded = await decodeToken(token);
-                const user = buildUser(decoded);
-
-                if (user) {
-                    request.user = user;
-                }
-            } catch (error) {
-                fastify.log.warn(
-                    { err: error },
-                    "Failed to decode optional authorization token"
-                );
-                // optional auth does not block the request
-            }
+            // Optional auth does not block the request even if token is invalid
         }
     );
 
@@ -204,4 +233,3 @@ const authPlugin = fp(async (fastify, _opts) => {
 });
 
 export default authPlugin;
-

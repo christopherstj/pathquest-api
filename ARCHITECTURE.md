@@ -23,9 +23,20 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 - `POST /user-interest` — Collect waitlist emails (public)
 
 ### Authentication model
-- The API accepts either a NextAuth JWT (decoded via `JWT_SECRET`) or header-derived identity.
-- Header-based identity (for OIDC edge-to-origin): send `Authorization: Bearer <token>` plus `x-user-id: <userId>`. Optional headers: `x-user-email`, `x-user-name`, `x-user-public: true|false`.
-- Owner checks rely on `request.user.id`. If neither JWT nor headers provide it, private routes return 401/403.
+The API supports two token types for authentication:
+
+1. **NextAuth JWT** (web clients): Decoded via `JWT_SECRET`. Used by the web frontend which sends the session cookie token directly.
+2. **PathQuest Mobile Token** (native clients): Signed/verified via `PATHQUEST_MOBILE_SECRET`. Issued by the `/api/auth/mobile/strava/exchange` endpoint after Strava PKCE OAuth.
+
+Both token types contain user identity claims (`sub`, `email`, `name`, `is_public`).
+
+**Header-based identity** (`x-user-*` headers) is only allowed in development mode for local testing.
+
+Owner checks rely on `request.user.id` extracted from the verified token. If no valid token is provided, private routes return 401.
+
+### Mobile Auth (`/api/auth/mobile`)
+- `POST /strava/exchange` — Exchange Strava PKCE authorization code for PathQuest tokens. Accepts `{ code, codeVerifier }`, returns `{ accessToken, refreshToken, expiresAt, user }` (public)
+- `POST /refresh` — Refresh an expired access token. Accepts `{ refreshToken }`, returns `{ accessToken, expiresAt }` (public)
 
 ### Users (`/api/users`)
 - `GET /:userId` — Public profile, private when requester matches (optional auth)

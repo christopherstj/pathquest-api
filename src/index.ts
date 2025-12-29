@@ -6,6 +6,7 @@ import peaks from "./routes/peaks";
 import challenges from "./routes/challenges";
 import activities from "./routes/activities";
 import auth from "./routes/auth";
+import mobileAuth from "./routes/auth/mobile";
 import billing from "./routes/billing";
 import user from "./routes/user";
 import dashboard from "./routes/dashboard";
@@ -18,6 +19,7 @@ const fastify = Fastify({
 fastify.register(authPlugin);
 
 fastify.register(auth, { prefix: "/api/auth" });
+fastify.register(mobileAuth, { prefix: "/api/auth/mobile" });
 fastify.register(user, { prefix: "/api/users" });
 fastify.register(billing, { prefix: "/api/billing" });
 fastify.register(historicalData, { prefix: "/api/historical-data" });

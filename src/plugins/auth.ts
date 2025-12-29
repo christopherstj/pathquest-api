@@ -141,13 +141,8 @@ const buildUserFromHeaders = (request: FastifyRequest): AuthenticatedUser | null
  * Google ID tokens are rejected (legacy Vercel OIDC flow, no longer supported).
  */
 const authenticateToken = async (token: string, fastify: any): Promise<AuthenticatedUser | null> => {
-    // Debug: log token info
-    fastify.log.info(`[Auth] Token received, length: ${token.length}, starts with: ${token.substring(0, 20)}...`);
-    fastify.log.info(`[Auth] NEXTAUTH_SECRET set: ${!!process.env.NEXTAUTH_SECRET}, length: ${process.env.NEXTAUTH_SECRET?.length ?? 0}`);
-
     // Try PathQuest mobile token first
     if (isPathQuestMobileToken(token)) {
-        fastify.log.info("[Auth] Detected PathQuest mobile token");
         const decoded = verifyMobileAccessToken(token);
         if (decoded) {
             return buildUserFromMobileToken(decoded);
@@ -163,17 +158,11 @@ const authenticateToken = async (token: string, fastify: any): Promise<Authentic
     }
 
     // Try NextAuth JWT
-    fastify.log.info("[Auth] Attempting NextAuth JWT decode");
     try {
         const decoded = await decodeNextAuthToken(token);
-        fastify.log.info(`[Auth] NextAuth decode result: ${decoded ? 'success' : 'null'}, sub: ${decoded?.sub}`);
-        const user = buildUserFromNextAuth(decoded);
-        if (!user) {
-            fastify.log.warn("[Auth] buildUserFromNextAuth returned null");
-        }
-        return user;
+        return buildUserFromNextAuth(decoded);
     } catch (error) {
-        fastify.log.error({ err: error }, "[Auth] Failed to decode NextAuth token");
+        fastify.log.warn({ err: error }, "Failed to decode NextAuth token");
         return null;
     }
 };

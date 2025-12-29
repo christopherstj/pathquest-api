@@ -25,7 +25,7 @@ PathQuest API is a REST API built with Fastify that serves as the backend for th
 ### Authentication model
 The API supports two token types for authentication:
 
-1. **NextAuth JWT** (web clients): Decoded via `JWT_SECRET`. Used by the web frontend which sends the session cookie token directly.
+1. **NextAuth JWT** (web clients): Decoded via `NEXTAUTH_SECRET` (same secret NextAuth uses to sign tokens). Used by the web frontend which sends the session cookie token directly.
 2. **PathQuest Mobile Token** (native clients): Signed/verified via `PATHQUEST_MOBILE_SECRET`. Issued by the `/api/auth/mobile/strava/exchange` endpoint after Strava PKCE OAuth.
 
 Both token types contain user identity claims (`sub`, `email`, `name`, `is_public`).

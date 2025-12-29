@@ -8,7 +8,7 @@ const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
             const token = request.headers.authorization.replace("Bearer ", "");
             const decoded = await decode({
                 token,
-                secret: process.env.JWT_SECRET ?? "",
+                secret: process.env.NEXTAUTH_SECRET ?? "",
             });
             if (!decoded) {
                 reply.code(401).send({ message: "Unauthorized" });

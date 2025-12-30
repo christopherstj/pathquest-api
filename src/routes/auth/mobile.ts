@@ -27,27 +27,31 @@ interface StravaOAuthResponse extends StravaTokenResponse {
 }
 
 /**
- * Exchange Strava authorization code for tokens using PKCE.
- * This is the entry point for mobile app authentication.
+ * Exchange Strava authorization code for tokens.
+ * Supports both PKCE (mobile endpoint) and standard OAuth (web redirect).
  */
 const exchangeStravaCode = async (
     code: string,
-    codeVerifier: string
+    codeVerifier?: string
 ): Promise<StravaOAuthResponse | null> => {
-    const params = new URLSearchParams({
+    const params: Record<string, string> = {
         client_id: STRAVA_CLIENT_ID,
         client_secret: STRAVA_CLIENT_SECRET,
         code,
-        code_verifier: codeVerifier,
         grant_type: "authorization_code",
-    });
+    };
+    
+    // Only include code_verifier if provided (for PKCE flow)
+    if (codeVerifier) {
+        params.code_verifier = codeVerifier;
+    }
 
     const response = await fetch("https://www.strava.com/api/v3/oauth/token", {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: params.toString(),
+        body: new URLSearchParams(params).toString(),
     });
 
     if (!response.ok) {
@@ -73,8 +77,8 @@ const mobileAuth = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.post<{
         Body: {
             code: string;
-            codeVerifier: string;
-            redirectUri?: string; // Not required for PKCE but may be sent
+            codeVerifier?: string; // Optional - only needed for PKCE flow
+            redirectUri?: string; // Not required but may be sent
         };
     }>("/strava/exchange", async (request, reply) => {
         const { code, codeVerifier } = request.body;
@@ -84,12 +88,8 @@ const mobileAuth = (fastify: FastifyInstance, _: any, done: any) => {
             reply.code(400).send({ message: "Missing or invalid code" });
             return;
         }
-        if (!codeVerifier || typeof codeVerifier !== "string") {
-            reply.code(400).send({ message: "Missing or invalid codeVerifier" });
-            return;
-        }
 
-        // Exchange code with Strava
+        // Exchange code with Strava (codeVerifier is optional for non-PKCE flows)
         const stravaResponse = await exchangeStravaCode(code, codeVerifier);
         if (!stravaResponse) {
             reply.code(401).send({ message: "Failed to exchange code with Strava" });

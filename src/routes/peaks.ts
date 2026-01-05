@@ -33,6 +33,8 @@ import denySummit from "../helpers/peaks/denySummit";
 import confirmAllSummits from "../helpers/peaks/confirmAllSummits";
 import getPeakActivity from "../helpers/peaks/getPeakActivity";
 import getCurrentWeather from "../helpers/peaks/getCurrentWeather";
+import getPeakForecast from "../helpers/peaks/getPeakForecast";
+import flagPeakForReview from "../helpers/peaks/flagPeakForReview";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -261,6 +263,57 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         
         reply.code(200).send(weather);
     });
+
+    // Get 7-day forecast for a peak
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+    }>("/:id/forecast", async function (request, reply) {
+        const peakId = request.params.id;
+        
+        // First get the peak to get its coordinates and elevation
+        const peak = await getPeakById(peakId, "");
+        
+        if (!peak) {
+            reply.code(404).send({ message: "Peak not found" });
+            return;
+        }
+        
+        if (!peak.location_coords) {
+            reply.code(400).send({ message: "Peak has no coordinates" });
+            return;
+        }
+        
+        const forecast = await getPeakForecast(
+            { lat: peak.location_coords[1], lon: peak.location_coords[0] },
+            peak.elevation ?? undefined
+        );
+        
+        reply.code(200).send(forecast);
+    });
+
+    // Flag a peak for coordinate review
+    fastify.post<{
+        Params: {
+            id: string;
+        };
+    }>(
+        "/:id/flag-for-review",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const peakId = request.params.id;
+            
+            const success = await flagPeakForReview(peakId);
+            
+            if (!success) {
+                reply.code(404).send({ message: "Peak not found" });
+                return;
+            }
+            
+            reply.code(200).send({ message: "Peak flagged for review" });
+        }
+    );
 
     fastify.get<{
         Params: {

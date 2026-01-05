@@ -4,6 +4,7 @@ import ChallengeProgress from "../../typeDefs/ChallengeProgress";
 export interface ChallengeProgressWithLastUpdate extends ChallengeProgress {
     lastProgressDate: string | null;
     lastProgressCount: number;
+    is_favorited: boolean;
 }
 
 const getAllChallenges = async (
@@ -57,11 +58,7 @@ const getAllChallenges = async (
             paramIndex += 4;
         }
 
-        if (favoritesOnly) {
-            clauses.push(`ucf.user_id = $${paramIndex}`);
-            params.push(userId);
-            paramIndex++;
-        }
+        // Note: favoritesOnly is handled by the INNER JOIN on user_challenge_favorite
 
         return clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     };
@@ -122,6 +119,11 @@ const getAllChallenges = async (
                 peaks_on_date
             FROM challenge_last_progress
             ORDER BY challenge_id, last_progress_date DESC
+        ),
+        user_favorites AS (
+            SELECT challenge_id
+            FROM user_challenge_favorite
+            WHERE user_id = $1
         )
         SELECT 
             c.id, 
@@ -133,19 +135,21 @@ const getAllChallenges = async (
             COUNT(p.id) AS total, 
             COUNT(ps.summitted) AS completed,
             cmr.last_progress_date::text as last_progress_date,
-            COALESCE(cmr.peaks_on_date, 0)::int as last_progress_count
+            COALESCE(cmr.peaks_on_date, 0)::int as last_progress_count,
+            (uf.challenge_id IS NOT NULL) AS is_favorited
         FROM challenges c 
         ${
             favoritesOnly
-                ? "LEFT JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id"
+                ? "INNER JOIN user_challenge_favorite ucf ON c.id = ucf.challenge_id AND ucf.user_id = $1"
                 : ""
         }
         LEFT JOIN peaks_challenges pc ON pc.challenge_id = c.id 
         LEFT JOIN peaks p ON pc.peak_id = p.id
         LEFT JOIN peak_summits ps ON p.id = ps.peak_id
         LEFT JOIN challenge_most_recent cmr ON c.id = cmr.challenge_id
+        LEFT JOIN user_favorites uf ON c.id = uf.challenge_id
         ${getWhereClause()}
-        GROUP BY c.id, c.name, c.description, c.location_coords, c.region, cmr.last_progress_date, cmr.peaks_on_date
+        GROUP BY c.id, c.name, c.description, c.location_coords, c.region, cmr.last_progress_date, cmr.peaks_on_date, uf.challenge_id
         ${getHavingClauses()}
     `;
 
@@ -165,6 +169,7 @@ const getAllChallenges = async (
             completed: parseInt(row.completed) || 0,
             lastProgressDate: row.last_progress_date || null,
             lastProgressCount: parseInt(row.last_progress_count) || 0,
+            is_favorited: row.is_favorited === true,
         };
     });
 };

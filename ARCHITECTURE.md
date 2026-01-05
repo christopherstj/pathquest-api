@@ -83,6 +83,7 @@ Access rules:
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /:id/public-summits` (cursor-based paginated public summits; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ summits, nextCursor, totalCount }`), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
+- Admin/Review: `POST /:id/flag-for-review` (auth required, sets `needs_review = true` for a peak)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
@@ -181,6 +182,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `denySummit` - Used in routes. Sets confirmation_status to 'denied'. Verifies summit belongs to user. Summit excluded from counts but kept for audit.
 - `confirmAllSummits` - Used in routes. Bulk confirms all unconfirmed summits for a user.
 - `getPeakActivity` - Used in routes. Returns summit counts for a peak (summitsThisWeek, summitsThisMonth, lastSummitDate). Public endpoint for peak activity indicators.
+- `flagPeakForReview` - Used in routes. Sets `needs_review = true` for a peak, flagging it for coordinate verification.
 
 ### Search Helpers (`helpers/search/`)
 - `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.

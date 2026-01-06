@@ -8,6 +8,7 @@ import updateUser from "../helpers/user/updateUser";
 import getUserPrivacy from "../helpers/user/getUserPrivacy";
 import getUserProfileStats from "../helpers/user/getUserProfileStats";
 import getUserAcceptedChallenges from "../helpers/user/getUserAcceptedChallenges";
+import getUserCompletedChallenges from "../helpers/user/getUserCompletedChallenges";
 import searchUserPeaks from "../helpers/peaks/searchUserPeaks";
 import searchUserSummits from "../helpers/peaks/searchUserSummits";
 import getStatesWithSummits from "../helpers/peaks/getStatesWithSummits";
@@ -245,11 +246,12 @@ export default async function user(
                     return;
                 }
 
-                // Get profile stats, accepted challenges, and peaks for map
+                // Get profile stats, accepted challenges, completed challenges, and peaks for map
                 // Always include completed challenges for profile view (both in-progress and completed)
-                const [stats, acceptedChallenges, peaksForMap] = await Promise.all([
+                const [stats, acceptedChallenges, completedChallenges, peaksForMap] = await Promise.all([
                     getUserProfileStats(userId, includePrivate),
                     getUserAcceptedChallenges(userId, includePrivate, true),
+                    getUserCompletedChallenges(userId, includePrivate),
                     getPeakSummitsByUser(userId, includePrivate),
                 ]);
 
@@ -257,6 +259,7 @@ export default async function user(
                     user: userInfo,
                     stats,
                     acceptedChallenges,
+                    completedChallenges,
                     peaksForMap,
                     isOwner,
                 });
@@ -371,6 +374,7 @@ export default async function user(
         };
         Querystring: {
             search?: string;
+            state?: string;
             page?: string;
             pageSize?: string;
         };
@@ -379,7 +383,7 @@ export default async function user(
         { onRequest: [fastify.optionalAuth] },
         async (request, reply) => {
             const { userId } = request.params;
-            const { search, page, pageSize } = request.query;
+            const { search, state, page, pageSize } = request.query;
             const isOwner = request.user?.id === userId;
 
             // Check user privacy
@@ -401,6 +405,7 @@ export default async function user(
                     userId,
                     includePrivate,
                     search,
+                    state,
                     page ? parseInt(page) : 1,
                     pageSize ? parseInt(pageSize) : 50
                 );

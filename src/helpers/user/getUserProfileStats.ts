@@ -14,6 +14,16 @@ export interface ProfileStats {
         name: string;
         elevation: number;
     } | null;
+    lowestPeak: {
+        id: string;
+        name: string;
+        elevation: number;
+    } | null;
+    mostVisitedPeak: {
+        id: string;
+        name: string;
+        visitCount: number;
+    } | null;
     challengesCompleted: number;
     totalElevationGained: number; // Sum of distinct peak elevations in meters
     statesClimbed: string[];
@@ -100,6 +110,47 @@ const getUserProfileStats = async (
     `;
     const highestPeakResult = await db.query(highestPeakQuery, [userId, includePrivate]);
     const highestPeak = highestPeakResult.rows[0] || null;
+
+    // Get lowest peak (for elevation range display)
+    const lowestPeakQuery = `
+        SELECT p.id, p.name, p.elevation
+        FROM (
+            SELECT a.user_id, ap.peak_id, ap.is_public 
+            FROM activities_peaks ap
+            LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
+            UNION
+            SELECT user_id, peak_id, is_public 
+            FROM user_peak_manual
+        ) ap
+        LEFT JOIN peaks p ON ap.peak_id = p.id
+        WHERE ap.user_id = $1 AND (ap.is_public = true OR $2) AND p.elevation IS NOT NULL
+        ORDER BY p.elevation ASC
+        LIMIT 1
+    `;
+    const lowestPeakResult = await db.query(lowestPeakQuery, [userId, includePrivate]);
+    const lowestPeak = lowestPeakResult.rows[0] || null;
+
+    // Get most visited peak (peak with highest summit count)
+    const mostVisitedPeakQuery = `
+        SELECT p.id, p.name, COUNT(*) as visit_count
+        FROM (
+            SELECT a.user_id, ap.peak_id, ap.is_public 
+            FROM activities_peaks ap
+            LEFT JOIN activities a ON a.id = ap.activity_id
+            WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
+            UNION ALL
+            SELECT user_id, peak_id, is_public 
+            FROM user_peak_manual
+        ) ap
+        LEFT JOIN peaks p ON ap.peak_id = p.id
+        WHERE ap.user_id = $1 AND (ap.is_public = true OR $2) AND p.name IS NOT NULL
+        GROUP BY p.id, p.name
+        ORDER BY visit_count DESC
+        LIMIT 1
+    `;
+    const mostVisitedPeakResult = await db.query(mostVisitedPeakQuery, [userId, includePrivate]);
+    const mostVisitedPeak = mostVisitedPeakResult.rows[0] || null;
 
     // Get completed challenges count
     const completedChallengesQuery = `
@@ -200,6 +251,16 @@ const getUserProfileStats = async (
             id: highestPeak.id,
             name: highestPeak.name,
             elevation: parseFloat(highestPeak.elevation),
+        } : null,
+        lowestPeak: lowestPeak ? {
+            id: lowestPeak.id,
+            name: lowestPeak.name,
+            elevation: parseFloat(lowestPeak.elevation),
+        } : null,
+        mostVisitedPeak: mostVisitedPeak && parseInt(mostVisitedPeak.visit_count) > 1 ? {
+            id: mostVisitedPeak.id,
+            name: mostVisitedPeak.name,
+            visitCount: parseInt(mostVisitedPeak.visit_count),
         } : null,
         challengesCompleted: parseInt(completedResult.rows[0].completed_count) || 0,
         totalElevationGained: parseFloat(stats.total_elevation) || 0,

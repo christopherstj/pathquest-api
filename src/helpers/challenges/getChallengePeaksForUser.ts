@@ -5,6 +5,7 @@ import convertPgNumbers from "../convertPgNumbers";
 export interface ChallengePeakWithSummit extends Peak {
     is_summited: boolean;
     summit_date: string | null;
+    summits: number;
 }
 
 /**
@@ -25,20 +26,21 @@ const getChallengePeaksForUser = async (
     const query = `
         WITH user_public_summits AS (
             -- Get all public summits for the user with their timestamps
-            SELECT DISTINCT ON (ap.peak_id) 
+            SELECT 
                 ap.peak_id, 
-                ap.timestamp as summit_date
+                MIN(ap.timestamp) as summit_date,
+                COUNT(*)::integer as summit_count
             FROM (
                 SELECT a.user_id, ap.peak_id, ap.timestamp, ap.is_public 
                 FROM activities_peaks ap
                 LEFT JOIN activities a ON a.id = ap.activity_id
                 WHERE COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
-                UNION
+                UNION ALL
                 SELECT user_id, peak_id, timestamp, is_public 
                 FROM user_peak_manual
             ) ap
             WHERE ap.user_id = $1 AND ap.is_public = true
-            ORDER BY ap.peak_id, ap.timestamp ASC
+            GROUP BY ap.peak_id
         )
         SELECT 
             p.id, 
@@ -49,7 +51,8 @@ const getChallengePeaksForUser = async (
             p.country,
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
             ups.peak_id IS NOT NULL AS is_summited,
-            ups.summit_date::text as summit_date
+            ups.summit_date::text as summit_date,
+            COALESCE(ups.summit_count, 0) as summits
         FROM peaks_challenges pc
         LEFT JOIN peaks p ON pc.peak_id = p.id
         LEFT JOIN user_public_summits ups ON p.id = ups.peak_id

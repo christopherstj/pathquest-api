@@ -1,6 +1,7 @@
 import Peak from "../../typeDefs/Peak";
 import convertPgNumbers from "../convertPgNumbers";
 import getCloudSqlConnection from "../getCloudSqlConnection";
+import getPeakPublicLand from "./getPeakPublicLand";
 
 const getPeakById = async (
     peakId: string,
@@ -76,7 +77,17 @@ const getPeakById = async (
 
     const peak = rows[0] || undefined;
 
-    return convertPgNumbers(peak);
+    if (!peak) {
+        return undefined;
+    }
+
+    // Fetch public land data for the peak
+    const publicLand = await getPeakPublicLand(peakId);
+
+    return {
+        ...convertPgNumbers(peak),
+        publicLand,
+    };
 };
 
 export default getPeakById;

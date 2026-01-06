@@ -83,7 +83,7 @@ Access rules:
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /:id/public-summits` (cursor-based paginated public summits; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ summits, nextCursor, totalCount }`), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
-- Admin/Review: `POST /:id/flag-for-review` (auth required, sets `needs_review = true` for a peak)
+- User actions (auth): `POST /:id/flag-for-review` (sets `needs_review = true` for a peak; allows users to flag incorrect coordinates for manual review)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
@@ -159,7 +159,8 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getMostRecentSummitByPeak` - Used in routes
 - `getNearbyPeaks` - **UNUSED** - Not imported in routes
 - `getNearestUnclimbedPeaks` - Used in routes
-- `getPeakById` - Used in routes
+- `getPeakById` - Used in routes. Now includes `publicLand` field with the most important public land designation for peaks within protected areas (via `getPeakPublicLand`)
+- `getPeakPublicLand` - Used internally by `getPeakById`. Returns the primary public land for a peak based on designation priority hierarchy (NP > NM > WILD > WSA > NRA > NCA > NWR > NF > NG > SP > SW > SRA > SF). Queries `peaks_public_lands` junction table joined with `public_lands`. Returns `{ name, type, typeName, manager }` or null.
 - `getPeaks` - Used in routes
 - `getPeakSummits` - **UNUSED** - File is empty (only contains comment)
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data and `public_summits` count. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
@@ -196,7 +197,7 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPublicUserProfile` - Used in routes
 - `getUser` - Used in routes. Returns full user data including `is_public` field
 - `getUserPrivacy` - Used in routes
-- `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, challenges completed, total elevation gained, states/countries climbed, year-over-year stats, peak type breakdown (14ers, 13ers, etc.), and climbing streak (consecutive months with at least 1 summit).
+- `getUserProfileStats` - Used in routes. Calculates aggregated profile statistics including: total peaks summited, total summits, highest peak, **lowest peak** (for elevation range), **most visited peak** (for favorites), challenges completed, total elevation gained, states/countries climbed, year-over-year stats, peak type breakdown (14ers, 13ers, etc.), and climbing streak (consecutive months with at least 1 summit).
 - `getUserAcceptedChallenges` - Used in routes. Returns challenges the user has "accepted" (favorited). Parameters: `userId`, `includePrivate` (boolean), `includeCompleted` (boolean, default false). When `includeCompleted=true`, returns both in-progress and completed challenges with `is_completed` flag. Profile endpoint passes `includeCompleted=true` to show all favorited challenges.
 - `getUserJournal` - Optimized single-query journal fetch. Returns paginated summit entries with inline peak data, inline activity context (title, distance, gain), summit numbers, and report status. Supports cursor pagination and filters (search, year, hasReport, peakId). Eliminates N+1 queries by including activity data in the main query.
 - `updateUser` - Used in routes. Supports updating: `name`, `email`, `pic`, `city`, `state`, `country`, `location_coords` (converts [lng, lat] to PostGIS geography), `update_description`, `is_public`

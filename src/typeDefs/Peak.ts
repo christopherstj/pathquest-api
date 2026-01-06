@@ -1,3 +1,10 @@
+export interface PublicLand {
+    name: string;
+    type: string;
+    typeName: string;
+    manager: string;
+}
+
 export default interface Peak {
     id: string;
     name: string;
@@ -18,4 +25,5 @@ export default interface Peak {
         notes?: string;
         timezone?: string;
     }[];
+    publicLand?: PublicLand | null;
 }

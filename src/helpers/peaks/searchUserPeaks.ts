@@ -2,6 +2,42 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 import convertPgNumbers from "../convertPgNumbers";
 import Peak from "../../typeDefs/Peak";
 
+/**
+ * Public land designation priority hierarchy.
+ * Lower number = higher priority (more prestigious/specific designation).
+ */
+const DESIGNATION_PRIORITY: Record<string, number> = {
+    'NP': 1,    // National Park (highest)
+    'NM': 2,    // National Monument
+    'WILD': 3,  // Wilderness Area
+    'WSA': 4,   // Wilderness Study Area
+    'NRA': 5,   // National Recreation Area
+    'NCA': 6,   // National Conservation Area
+    'NWR': 7,   // National Wildlife Refuge
+    'NF': 8,    // National Forest
+    'NG': 9,    // National Grassland
+    'SP': 10,   // State Park
+    'SW': 11,   // State Wilderness
+    'SRA': 12,  // State Recreation Area
+    'SF': 13,   // State Forest
+};
+
+const DESIGNATION_NAMES: Record<string, string> = {
+    'NP': 'National Park',
+    'NM': 'National Monument',
+    'WILD': 'Wilderness Area',
+    'WSA': 'Wilderness Study Area',
+    'NRA': 'National Recreation Area',
+    'NCA': 'National Conservation Area',
+    'NWR': 'National Wildlife Refuge',
+    'NF': 'National Forest',
+    'NG': 'National Grassland',
+    'SP': 'State Park',
+    'SW': 'State Wilderness',
+    'SRA': 'State Recreation Area',
+    'SF': 'State Forest',
+};
+
 export interface UserPeakWithSummitCount extends Peak {
     summit_count: number;
     first_summit_date?: string;
@@ -91,7 +127,7 @@ const searchUserPeaks = async (
             break;
     }
 
-    // Query for peaks with summit counts (user + public)
+    // Query for peaks with summit counts (user + public) and public lands
     const query = `
         SELECT 
             p.id,
@@ -122,7 +158,10 @@ const searchUserPeaks = async (
                     WHERE upm.is_public = true AND u5.is_public = true
                 ) pub
                 WHERE pub.peak_id = p.id
-            ) AS public_summits
+            ) AS public_summits,
+            pl_agg.public_land_name,
+            pl_agg.public_land_type,
+            pl_agg.public_land_manager
         FROM (
             SELECT a.user_id, ap.id, ap.timestamp, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
@@ -133,9 +172,32 @@ const searchUserPeaks = async (
             FROM user_peak_manual
         ) ap
         LEFT JOIN peaks p ON ap.peak_id = p.id
+        LEFT JOIN LATERAL (
+            SELECT pl.unit_nm AS public_land_name, pl.des_tp AS public_land_type, pl.mang_name AS public_land_manager
+            FROM peaks_public_lands ppl
+            JOIN public_lands pl ON ppl.public_land_id = pl.objectid
+            WHERE ppl.peak_id = p.id
+            ORDER BY (CASE pl.des_tp
+                WHEN 'NP' THEN 1
+                WHEN 'NM' THEN 2
+                WHEN 'WILD' THEN 3
+                WHEN 'WSA' THEN 4
+                WHEN 'NRA' THEN 5
+                WHEN 'NCA' THEN 6
+                WHEN 'NWR' THEN 7
+                WHEN 'NF' THEN 8
+                WHEN 'NG' THEN 9
+                WHEN 'SP' THEN 10
+                WHEN 'SW' THEN 11
+                WHEN 'SRA' THEN 12
+                WHEN 'SF' THEN 13
+                ELSE 999
+            END)
+            LIMIT 1
+        ) pl_agg ON true
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
         ${whereClause}
-        GROUP BY p.id, p.name, p.elevation, p.county, p.state, p.country, p.type, p.location_coords
+        GROUP BY p.id, p.name, p.elevation, p.county, p.state, p.country, p.type, p.location_coords, pl_agg.public_land_name, pl_agg.public_land_type, pl_agg.public_land_manager
         ${havingClause}
         ORDER BY ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -228,6 +290,12 @@ const searchUserPeaks = async (
         public_summits: parseInt(row.public_summits) || 0,
         first_summit_date: row.first_summit_date,
         last_summit_date: row.last_summit_date,
+        publicLand: row.public_land_name ? {
+            name: row.public_land_name,
+            type: row.public_land_type || 'Unknown',
+            typeName: DESIGNATION_NAMES[row.public_land_type] || row.public_land_type || 'Public Land',
+            manager: row.public_land_manager || 'Unknown',
+        } : null,
     }));
 
     return {

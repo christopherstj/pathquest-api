@@ -7,6 +7,8 @@ export type DailyForecast = {
     windSpeed: number | null; // km/h
     windDirection: number | null; // degrees (meteorological; coming FROM)
     cloudCover: number | null; // percent
+    sunrise: string | null; // ISO time
+    sunset: string | null; // ISO time
 };
 
 export type PeakForecastData = {
@@ -66,6 +68,8 @@ const getPeakForecast = async (
                 windSpeed: data.daily.wind_speed_10m_max?.[i] ?? null,
                 windDirection: data.daily.wind_direction_10m_dominant?.[i] ?? null,
                 cloudCover: data.daily.cloud_cover_mean?.[i] ?? null,
+                sunrise: data.daily.sunrise?.[i] ?? null,
+                sunset: data.daily.sunset?.[i] ?? null,
             });
         }
 

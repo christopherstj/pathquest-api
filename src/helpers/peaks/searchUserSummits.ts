@@ -29,13 +29,14 @@ export interface SummitWithPeak {
 }
 
 /**
- * Searches user's summits by peak name
+ * Searches user's summits by peak name and/or state
  * Returns individual summit entries with peak data nested
  */
 const searchUserSummits = async (
     userId: string,
     includePrivate: boolean = false,
     search?: string,
+    state?: string,
     page: number = 1,
     pageSize: number = 50
 ): Promise<{ summits: SummitWithPeak[]; totalCount: number }> => {
@@ -49,6 +50,13 @@ const searchUserSummits = async (
     if (search) {
         searchClause = `AND p.name ILIKE $${paramIndex}`;
         params.push(`%${search}%`);
+        paramIndex++;
+    }
+
+    let stateClause = "";
+    if (state) {
+        stateClause = `AND p.state = $${paramIndex}`;
+        params.push(state);
         paramIndex++;
     }
 
@@ -94,6 +102,7 @@ const searchUserSummits = async (
         LEFT JOIN peaks p ON ap.peak_id = p.id
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
         ${searchClause}
+        ${stateClause}
         ORDER BY ap.timestamp DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
@@ -102,10 +111,20 @@ const searchUserSummits = async (
 
     // Count query
     const countParams: (string | boolean)[] = [userId, includePrivate];
+    let countParamIndex = 3;
     let countSearchClause = "";
+    let countStateClause = "";
+    
     if (search) {
-        countSearchClause = `AND p.name ILIKE $3`;
+        countSearchClause = `AND p.name ILIKE $${countParamIndex}`;
         countParams.push(`%${search}%`);
+        countParamIndex++;
+    }
+    
+    if (state) {
+        countStateClause = `AND p.state = $${countParamIndex}`;
+        countParams.push(state);
+        countParamIndex++;
     }
 
     const countQuery = `
@@ -122,6 +141,7 @@ const searchUserSummits = async (
         LEFT JOIN peaks p ON ap.peak_id = p.id
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
         ${countSearchClause}
+        ${countStateClause}
     `;
 
     const [summitsResult, countResult] = await Promise.all([

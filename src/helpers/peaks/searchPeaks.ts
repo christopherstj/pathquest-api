@@ -90,14 +90,41 @@ const searchPeaks = async (
                     : `similarity(p.name, $${searchParamIndex}) * 0.1`
                 } +
                 CASE WHEN p.name ILIKE $${prefixPatternParamIndex} THEN 0.05 ELSE 0 END +
-                LEAST(COUNT(DISTINCT ap3.id)::float / 1000.0, 0.0)
+                LEAST(COALESCE(psa.public_summits, 0)::float / 1000.0, 0.0)
             ) DESC, p.elevation DESC NULLS LAST`;
         }
         // Default ordering by elevation when not searching
         return "ORDER BY p.elevation DESC NULLS LAST";
     };
 
+    // Optimized query using CTEs to pre-aggregate counts
+    // This avoids the expensive row-by-row counting for public_summits
     const query = `
+        WITH public_summits_agg AS (
+            SELECT 
+                peak_id,
+                COUNT(DISTINCT id) AS public_summits
+            FROM (
+                SELECT ap4.id, ap4.peak_id 
+                FROM activities_peaks ap4
+                LEFT JOIN activities a4 ON a4.id = ap4.activity_id
+                LEFT JOIN users u4 ON u4.id = a4.user_id
+                WHERE ap4.is_public = true 
+                AND u4.is_public = true
+                AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
+                UNION
+                SELECT upm.id, upm.peak_id 
+                FROM user_peak_manual upm
+                LEFT JOIN users u5 ON u5.id = upm.user_id
+                WHERE upm.is_public = true AND u5.is_public = true
+            ) pub
+            GROUP BY peak_id
+        ),
+        challenge_counts AS (
+            SELECT peak_id, COUNT(DISTINCT challenge_id) AS num_challenges
+            FROM peaks_challenges
+            GROUP BY peak_id
+        )
         SELECT p.id, p.name, p.elevation, p.county, p.state, p.country,
         ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords${
             userId ? ", upf.user_id IS NOT NULL AS is_favorited" : ""
@@ -107,8 +134,8 @@ const searchPeaks = async (
                 ? ", COUNT(DISTINCT ap2.id) AS summits"
                 : ""
         }
-        , COUNT(DISTINCT ap3.id) AS public_summits
-        , COUNT(DISTINCT pc.challenge_id) AS num_challenges
+        , COALESCE(psa.public_summits, 0) AS public_summits
+        , COALESCE(cc.num_challenges, 0) AS num_challenges
         FROM peaks p 
         ${
             userId
@@ -128,24 +155,10 @@ const searchPeaks = async (
                     ON p.id = upf.peak_id`
                 : ""
         }
-        LEFT JOIN (
-            SELECT ap4.id, ap4.peak_id 
-            FROM activities_peaks ap4
-            LEFT JOIN activities a4 ON a4.id = ap4.activity_id
-            LEFT JOIN users u4 ON u4.id = a4.user_id
-            WHERE ap4.is_public = true 
-            AND u4.is_public = true
-            AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
-            UNION
-            SELECT upm.id, upm.peak_id 
-            FROM user_peak_manual upm
-            LEFT JOIN users u5 ON u5.id = upm.user_id
-            WHERE upm.is_public = true AND u5.is_public = true
-        )
-        ap3 ON ap3.peak_id = p.id
-        LEFT JOIN peaks_challenges pc ON pc.peak_id = p.id
+        LEFT JOIN public_summits_agg psa ON p.id = psa.peak_id
+        LEFT JOIN challenge_counts cc ON p.id = cc.peak_id
         ${getWhereClause()}
-        GROUP BY p.name, p.id, p.location_coords, p.elevation, p.county, p.state, p.country${
+        GROUP BY p.name, p.id, p.location_coords, p.elevation, p.county, p.state, p.country, psa.public_summits, cc.num_challenges${
             userId ? ", upf.user_id" : ""
         }
         ${getOrderByClause()}

@@ -128,41 +128,9 @@ const searchUserPeaks = async (
     }
 
     // Query for peaks with summit counts (user + public) and public lands
+    // Optimized: Use CTEs to avoid N+1 queries
     const query = `
-        SELECT 
-            p.id,
-            p.name,
-            p.elevation,
-            p.county,
-            p.state,
-            p.country,
-            p.type,
-            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] AS location_coords,
-            COUNT(ap.id) AS summit_count,
-            MIN(ap.timestamp) AS first_summit_date,
-            MAX(ap.timestamp) AS last_summit_date,
-            (
-                SELECT COUNT(DISTINCT pub.id)
-                FROM (
-                    SELECT ap4.id, ap4.peak_id 
-                    FROM activities_peaks ap4
-                    LEFT JOIN activities a4 ON a4.id = ap4.activity_id
-                    LEFT JOIN users u4 ON u4.id = a4.user_id
-                    WHERE ap4.is_public = true 
-                    AND u4.is_public = true
-                    AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
-                    UNION
-                    SELECT upm.id, upm.peak_id 
-                    FROM user_peak_manual upm
-                    LEFT JOIN users u5 ON u5.id = upm.user_id
-                    WHERE upm.is_public = true AND u5.is_public = true
-                ) pub
-                WHERE pub.peak_id = p.id
-            ) AS public_summits,
-            pl_agg.public_land_name,
-            pl_agg.public_land_type,
-            pl_agg.public_land_manager
-        FROM (
+        WITH user_summits AS (
             SELECT a.user_id, ap.id, ap.timestamp, ap.peak_id, ap.is_public 
             FROM activities_peaks ap
             LEFT JOIN activities a ON a.id = ap.activity_id
@@ -170,14 +138,36 @@ const searchUserPeaks = async (
             UNION
             SELECT user_id, id, timestamp, peak_id, is_public 
             FROM user_peak_manual
-        ) ap
-        LEFT JOIN peaks p ON ap.peak_id = p.id
-        LEFT JOIN LATERAL (
-            SELECT pl.unit_nm AS public_land_name, pl.des_tp AS public_land_type, pl.mang_name AS public_land_manager
+        ),
+        public_summits_agg AS (
+            SELECT 
+                peak_id,
+                COUNT(DISTINCT id) AS public_summits
+            FROM (
+                SELECT ap4.id, ap4.peak_id 
+                FROM activities_peaks ap4
+                LEFT JOIN activities a4 ON a4.id = ap4.activity_id
+                LEFT JOIN users u4 ON u4.id = a4.user_id
+                WHERE ap4.is_public = true 
+                AND u4.is_public = true
+                AND COALESCE(ap4.confirmation_status, 'auto_confirmed') != 'denied'
+                UNION
+                SELECT upm.id, upm.peak_id 
+                FROM user_peak_manual upm
+                LEFT JOIN users u5 ON u5.id = upm.user_id
+                WHERE upm.is_public = true AND u5.is_public = true
+            ) pub
+            GROUP BY peak_id
+        ),
+        public_lands_agg AS (
+            SELECT DISTINCT ON (ppl.peak_id)
+                ppl.peak_id,
+                pl.unit_nm AS public_land_name,
+                pl.des_tp AS public_land_type,
+                pl.mang_name AS public_land_manager
             FROM peaks_public_lands ppl
             JOIN public_lands pl ON ppl.public_land_id = pl.objectid
-            WHERE ppl.peak_id = p.id
-            ORDER BY (CASE pl.des_tp
+            ORDER BY ppl.peak_id, (CASE pl.des_tp
                 WHEN 'NP' THEN 1
                 WHEN 'NM' THEN 2
                 WHEN 'WILD' THEN 3
@@ -193,11 +183,30 @@ const searchUserPeaks = async (
                 WHEN 'SF' THEN 13
                 ELSE 999
             END)
-            LIMIT 1
-        ) pl_agg ON true
+        )
+        SELECT 
+            p.id,
+            p.name,
+            p.elevation,
+            p.county,
+            p.state,
+            p.country,
+            p.type,
+            ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] AS location_coords,
+            COUNT(ap.id) AS summit_count,
+            MIN(ap.timestamp) AS first_summit_date,
+            MAX(ap.timestamp) AS last_summit_date,
+            COALESCE(psa.public_summits, 0) AS public_summits,
+            pla.public_land_name,
+            pla.public_land_type,
+            pla.public_land_manager
+        FROM user_summits ap
+        LEFT JOIN peaks p ON ap.peak_id = p.id
+        LEFT JOIN public_summits_agg psa ON p.id = psa.peak_id
+        LEFT JOIN public_lands_agg pla ON p.id = pla.peak_id
         WHERE ap.user_id = $1 AND (ap.is_public = true OR $2)
         ${whereClause}
-        GROUP BY p.id, p.name, p.elevation, p.county, p.state, p.country, p.type, p.location_coords, pl_agg.public_land_name, pl_agg.public_land_type, pl_agg.public_land_manager
+        GROUP BY p.id, p.name, p.elevation, p.county, p.state, p.country, p.type, p.location_coords, psa.public_summits, pla.public_land_name, pla.public_land_type, pla.public_land_manager
         ${havingClause}
         ORDER BY ${orderByClause}
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

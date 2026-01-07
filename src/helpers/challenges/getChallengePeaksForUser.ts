@@ -25,10 +25,10 @@ const getChallengePeaksForUser = async (
     
     const query = `
         WITH user_public_summits AS (
-            -- Get all public summits for the user with their timestamps
+            -- Get all public summits for the user with their dates (date-only, not timestamp)
             SELECT 
                 ap.peak_id, 
-                MIN(ap.timestamp) as summit_date,
+                MIN(ap.timestamp::date)::text as summit_date,
                 COUNT(*)::integer as summit_count
             FROM (
                 SELECT a.user_id, ap.peak_id, ap.timestamp, ap.is_public 
@@ -51,7 +51,7 @@ const getChallengePeaksForUser = async (
             p.country,
             ARRAY[ST_X(p.location_coords::geometry), ST_Y(p.location_coords::geometry)] as location_coords,
             ups.peak_id IS NOT NULL AS is_summited,
-            ups.summit_date::text as summit_date,
+            ups.summit_date as summit_date,
             COALESCE(ups.summit_count, 0) as summits
         FROM peaks_challenges pc
         LEFT JOIN peaks p ON pc.peak_id = p.id

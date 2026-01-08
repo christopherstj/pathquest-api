@@ -26,9 +26,9 @@
     },
     "dependencies": {
         "@fastify/jwt": "^9.0.1",
-        "jsonwebtoken": "^9.0.2",
         "@google-cloud/cloud-sql-connector": "^1.4.0",
         "@google-cloud/pubsub": "^4.10.0",
+        "@google-cloud/storage": "^7.16.0",
         "@googlemaps/google-maps-services-js": "^3.4.0",
         "@types/node": "^22.7.5",
         "@types/pg": "^8.15.6",
@@ -36,9 +36,12 @@
         "dotenv": "^16.4.5",
         "fastify": "^5.0.0",
         "fastify-plugin": "^5.0.1",
+        "geo-tz": "^8.1.4",
+        "jsonwebtoken": "^9.0.2",
         "mysql2": "^3.11.3",
         "next-auth": "^4.24.8",
         "pg": "^8.16.3",
+        "sharp": "^0.33.5",
         "stripe": "^17.4.0",
         "typescript": "^5.6.2"
     }

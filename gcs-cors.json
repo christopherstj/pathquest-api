@@ -1,0 +1,10 @@
+[
+  {
+    "origin": ["https://pathquest.app", "pathquest://"],
+    "method": ["GET", "PUT"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+
+

@@ -10,6 +10,7 @@ interface UpdateUserData {
     location_coords?: [number, number] | null; // [lng, lat]
     update_description?: boolean;
     is_public?: boolean;
+    units?: "imperial" | "metric";
 }
 
 const updateUser = async (

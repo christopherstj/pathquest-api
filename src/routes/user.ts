@@ -166,6 +166,7 @@ export default async function user(
             location_coords?: [number, number] | null;
             update_description?: boolean;
             is_public?: boolean;
+            units?: "imperial" | "metric";
         };
     }>(
         "/:userId",
@@ -182,6 +183,7 @@ export default async function user(
                 location_coords,
                 update_description,
                 is_public,
+                units,
             } = request.body;
 
             if (!ensureOwner(request, reply, userId)) {
@@ -199,6 +201,7 @@ export default async function user(
                     location_coords,
                     update_description,
                     is_public,
+                    units,
                 });
                 reply
                     .code(200)

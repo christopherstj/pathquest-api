@@ -83,6 +83,7 @@ Access rules:
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /:id/public-summits` (cursor-based paginated public summits; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ summits, nextCursor, totalCount }`), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
+- Public photos: `GET /:id/photos` (native-uploaded summit photos; signed URLs; optional `limit` query param)
 - User actions (auth): `POST /:id/flag-for-review` (sets `needs_review = true` for a peak; allows users to flag incorrect coordinates for manual review)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
@@ -100,6 +101,15 @@ Automatically detected summits may have low confidence scores and need user revi
 - Auth-required: `GET /:challengeId/next-peak` (closest and easiest unclimbed peak, supports `lat`/`lng` query params for distance calculation)
 - Auth-owner: `POST /incomplete`
 - Favorites (auth + owner): `POST /favorite`, `PUT /favorite`, `DELETE /favorite/:challengeId`
+
+### Photos (`/api/photos`)
+- `POST /upload-url` — Get a signed Google Cloud Storage upload URL for direct client upload (auth, owner-of-summit)
+- `POST /:id/complete` — Confirm upload and generate thumbnail (auth, owner)
+- `PUT /:id` — Update photo caption (auth, owner)
+- `DELETE /:id` — Delete photo from storage + DB (auth, owner)
+
+### Utils (`/api/utils`)
+- `GET /timezone` — Get IANA timezone string for coordinates (public, query params: `lat`, `lng`)
 
 ### Billing (`/api/billing`) — auth + owner
 - `POST /create-subscription`
@@ -185,6 +195,14 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakActivity` - Used in routes. Returns summit counts for a peak (summitsThisWeek, summitsThisMonth, lastSummitDate). Public endpoint for peak activity indicators.
 - `flagPeakForReview` - Used in routes. Sets `needs_review = true` for a peak, flagging it for coordinate verification.
 
+### Photos Helpers (`helpers/photos/`)
+- `getSignedUploadUrl` - Generates signed PUT URL for direct GCS upload
+- `createPendingPhoto` - Inserts pending `summit_photos` record (verifies summit ownership)
+- `completePhotoUpload` - Downloads uploaded file, compresses original, generates thumbnail (Sharp), updates DB
+- `deletePhoto` - Deletes objects in GCS and removes DB record
+- `getPhotosByPeak` - Returns public photos for a peak with signed URLs
+- `getPhotosBySummit` - Returns owner's photos for a specific summit (for editing flows)
+
 ### Search Helpers (`helpers/search/`)
 - `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.
 
@@ -255,12 +273,53 @@ Key tables:
 - `event_queue` - Queue for processing Strava webhook events
 - `strava_rate_limits` - Tracks Strava API rate limit usage
 - `strava_tokens` - Stores Strava OAuth tokens
+- `summit_photos` - Photo metadata for summit reports (GCS-backed; supports activity + manual summits)
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication
 - **Google Maps Services**: Geocoding and mapping
 - **Stripe**: Subscription billing
 - **Google Cloud Pub/Sub**: Message queue for activity processing
+- **Google Cloud Storage**: Private photo storage (signed URLs; thumbnails generated server-side)
+
+## Photo Storage Setup (GCS)
+
+Photo uploads use a private Google Cloud Storage bucket with **signed URLs**.
+
+### Bucket
+- Suggested bucket name: `pathquest-photos`
+- Region: same as Cloud SQL (latency)
+- Public access: prevented (signed URLs only)
+
+### CORS
+Recommended CORS JSON:
+
+```json
+[
+  {
+    "origin": ["https://pathquest.app", "pathquest://"],
+    "method": ["GET", "PUT"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+### Service Account / IAM
+`pathquest-api` needs permission to:
+- Generate signed URLs
+- Read uploaded originals
+- Write thumbnails
+- Delete objects on photo delete
+
+Recommended role: **Storage Object Admin** on the bucket.
+
+### Environment Variables
+- `PHOTOS_BUCKET_NAME` (default: `pathquest-photos`)
+- `PHOTOS_UPLOAD_URL_EXPIRES_MS` (default: `900000` / 15 min)
+- `PHOTOS_VIEW_URL_EXPIRES_MS` (default: `3600000` / 1 hr)
+- `PHOTOS_MAX_UPLOAD_BYTES` (default: `10485760` / 10MB)
+- `PHOTOS_THUMB_WIDTH` (default: `400`)
 ## Notes
 - Several helper functions are unused and could be cleaned up:
   - `getSummitsByActivity` - Not imported anywhere

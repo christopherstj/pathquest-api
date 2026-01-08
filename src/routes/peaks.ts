@@ -35,6 +35,7 @@ import getPeakActivity from "../helpers/peaks/getPeakActivity";
 import getCurrentWeather from "../helpers/peaks/getCurrentWeather";
 import getPeakForecast from "../helpers/peaks/getPeakForecast";
 import flagPeakForReview from "../helpers/peaks/flagPeakForReview";
+import getPhotosByPeak from "../helpers/photos/getPhotosByPeak";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -222,6 +223,18 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             console.error("Error fetching public summits:", error);
             reply.code(500).send({ message: "Error fetching public summits" });
         }
+    });
+
+    // Public photos for a peak (native uploads only; Strava photos are not allowed)
+    fastify.get<{
+        Params: { id: string };
+        Querystring: { limit?: string };
+    }>("/:id/photos", async function (request, reply) {
+        const peakId = request.params.id;
+        const limit = request.query.limit ? parseInt(request.query.limit, 10) : 50;
+
+        const result = await getPhotosByPeak({ peakId, limit });
+        reply.code(200).send(result);
     });
 
     // Get peak activity (recent summit counts)

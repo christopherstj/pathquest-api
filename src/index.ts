@@ -10,6 +10,8 @@ import mobileAuth from "./routes/auth/mobile";
 import billing from "./routes/billing";
 import user from "./routes/user";
 import dashboard from "./routes/dashboard";
+import photos from "./routes/photos";
+import utils from "./routes/utils";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -27,6 +29,8 @@ fastify.register(peaks, { prefix: "/api/peaks" });
 fastify.register(challenges, { prefix: "/api/challenges" });
 fastify.register(activities, { prefix: "/api/activities" });
 fastify.register(dashboard, { prefix: "/api/dashboard" });
+fastify.register(photos, { prefix: "/api/photos" });
+fastify.register(utils, { prefix: "/api/utils" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

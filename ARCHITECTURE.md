@@ -178,8 +178,8 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPeakSummitsByUser` - Used in routes and profile page. Returns all peaks a user has summited with ascent data and `public_summits` count. Explicitly converts location_coords from geography to [lng, lat] array format for frontend compatibility.
 - `getHistoricalWeather` - Used internally by `addManualPeakSummit` to fetch weather data for manual summit entries
 - `getPublicSummitsByPeak` - Used in routes. Returns public summits with `user_id` and `user_name` joined from users table for display in frontend summit history. User ID enables profile linking in the Community tab. Filters out summits from private users (`users.is_public = false`) to respect user privacy settings. **Note**: `activity_id` is intentionally excluded from the response to comply with Strava API guidelines (Strava data can only be shown to the activity owner).
-- `getPublicSummitsByPeakCursor` - Cursor-based pagination for public summits. Returns paginated summits ordered by timestamp DESC (most recent first). Supports `cursor` (ISO timestamp) and `limit` (default 20, max 100) filters. Returns `{ summits, nextCursor, totalCount }`. Used by `/peaks/:id/public-summits` endpoint for efficient infinite scrolling of peaks with hundreds of summits. Total count is only calculated on the first page to avoid expensive count queries on every page load.
-- `getRecentPublicSummits` - Used in routes. Returns most recent public summits across the entire community, including `peak_name`, with no `activity_id` (Strava compliance).
+- `getPublicSummitsByPeakCursor` - Cursor-based pagination for public summits. Returns paginated summits ordered by timestamp DESC (most recent first). Supports `cursor` (ISO timestamp) and `limit` (default 20, max 100) filters. Returns `{ summits, nextCursor, totalCount }`. Used by `/peaks/:id/public-summits` endpoint. Includes `summit_type` ('activity' | 'manual') and `photo_thumbnails` (array of signed URLs for first 4 photos).
+- `getRecentPublicSummits` - Returns most recent public summits across the entire community, including `peak_name`, `summit_type` ('activity' | 'manual'), and `photo_thumbnails` (array of signed URLs for first 4 photos). No `activity_id` for Strava compliance.
 - `getRecentSummits` - Used in routes
 - `getSummitsByPeak` - Used in routes
 - `getTopPeaksBySummitCount` - Used in routes (for static generation)
@@ -236,6 +236,7 @@ Automatically detected summits may have low confidence scores and need user revi
 
 ### Import Status (`helpers/user/getImportStatus.ts`)
 - `getImportStatus` - Returns detailed import progress: total/processed/pending activities, summits found, percent complete, estimated hours remaining, status, and user-friendly message. Used by `/users/:userId/import-status` endpoint.
+- **Rate limit config**: `WEBHOOK_RESERVE_PERCENT = 0.02` (2% reserved for webhooks, matching queue-handler). With 30k daily limit: ~14,700 activities/day processing capacity.
 
 ### User Challenge Progress
 - `GET /users/:userId/challenges/:challengeId` - Returns a user's progress on a specific challenge. Response includes:

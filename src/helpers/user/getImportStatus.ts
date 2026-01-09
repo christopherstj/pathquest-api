@@ -7,7 +7,8 @@ const RUNS_PER_HOUR = 12;
 const REQUESTS_PER_ACTIVITY = 2;
 
 // Reserve percentage for webhooks - must match queue-handler setting
-const WEBHOOK_RESERVE_PERCENT = 0.1;
+// With 30k daily limit: 30,000 * 0.02 = 600 requests reserved for webhooks
+const WEBHOOK_RESERVE_PERCENT = 0.02;
 
 interface ImportStatus {
     // Counts

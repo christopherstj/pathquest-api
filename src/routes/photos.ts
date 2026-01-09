@@ -6,6 +6,7 @@ import completePhotoUpload from "../helpers/photos/completePhotoUpload";
 import deletePhoto from "../helpers/photos/deletePhoto";
 import updatePhotoCaption from "../helpers/photos/updatePhotoCaption";
 import getPhotosBySummit from "../helpers/photos/getPhotosBySummit";
+import getPublicPhotosBySummit from "../helpers/photos/getPublicPhotosBySummit";
 
 const SUPPORTED_CONTENT_TYPES = [
     "image/jpeg",
@@ -163,6 +164,34 @@ const photos = (fastify: FastifyInstance, _: any, done: any) => {
                 summitType: summitType as SummitType,
                 summitId,
                 userId,
+            });
+            reply.code(200).send(result);
+        }
+    );
+
+    // GET /api/photos/by-summit/public - Get public photos for a specific summit (no auth)
+    // Used to show photos on public summit cards in the community section
+    fastify.get<{
+        Querystring: { summitType: string; summitId: string; limit?: string };
+    }>(
+        "/by-summit/public",
+        async function (request, reply) {
+            const { summitType, summitId, limit } = request.query;
+
+            if (summitType !== "activity" && summitType !== "manual") {
+                reply.code(400).send({ message: "Invalid summitType" });
+                return;
+            }
+
+            if (!summitId) {
+                reply.code(400).send({ message: "Missing summitId" });
+                return;
+            }
+
+            const result = await getPublicPhotosBySummit({
+                summitType: summitType as SummitType,
+                summitId,
+                limit: limit ? parseInt(limit, 10) : undefined,
             });
             reply.code(200).send(result);
         }

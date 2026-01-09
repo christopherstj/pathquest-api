@@ -225,15 +225,20 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
     });
 
-    // Public photos for a peak (native uploads only; Strava photos are not allowed)
+    // Public photos for a peak with cursor-based pagination
+    // (native uploads only; Strava photos are not allowed)
     fastify.get<{
         Params: { id: string };
-        Querystring: { limit?: string };
+        Querystring: { cursor?: string; limit?: string };
     }>("/:id/photos", async function (request, reply) {
         const peakId = request.params.id;
-        const limit = request.query.limit ? parseInt(request.query.limit, 10) : 50;
+        const cursor = request.query.cursor;
+        const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
 
-        const result = await getPhotosByPeak({ peakId, limit });
+        const result = await getPhotosByPeak({ 
+            peakId, 
+            filters: { cursor, limit } 
+        });
         reply.code(200).send(result);
     });
 

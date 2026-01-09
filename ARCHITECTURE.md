@@ -83,7 +83,7 @@ Access rules:
 
 ### Peaks (`/api/peaks`)
 - Public data: `GET /` (list), `GET /search`, `GET /search/nearest`, `GET /:id`, `GET /:id/activity` (recent summit counts), `GET /:id/public-summits` (cursor-based paginated public summits; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ summits, nextCursor, totalCount }`), `GET /top` (top peaks by summit count for static generation), `GET /summits/public/recent` (most recent public summits across the whole community; no auth)
-- Public photos: `GET /:id/photos` (native-uploaded summit photos; signed URLs; optional `limit` query param)
+- Public photos: `GET /:id/photos` (native-uploaded summit photos with cursor-based pagination; signed URLs; query params: `cursor` ISO timestamp, `limit` default 20 max 100; returns `{ photos, nextCursor, totalCount }`)
 - User actions (auth): `POST /:id/flag-for-review` (sets `needs_review = true` for a peak; allows users to flag incorrect coordinates for manual review)
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
@@ -107,6 +107,8 @@ Automatically detected summits may have low confidence scores and need user revi
 - `POST /:id/complete` — Confirm upload and generate thumbnail (auth, owner)
 - `PUT /:id` — Update photo caption (auth, owner)
 - `DELETE /:id` — Delete photo from storage + DB (auth, owner)
+- `GET /by-summit` — Get photos for a specific summit (auth, owner only)
+- `GET /by-summit/public` — Get public photos for a specific summit (no auth, only returns photos from public summits by public users)
 
 ### Utils (`/api/utils`)
 - `GET /timezone` — Get IANA timezone string for coordinates (public, query params: `lat`, `lng`)
@@ -200,8 +202,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - `createPendingPhoto` - Inserts pending `summit_photos` record (verifies summit ownership)
 - `completePhotoUpload` - Downloads uploaded file, compresses original, generates thumbnail (Sharp), updates DB
 - `deletePhoto` - Deletes objects in GCS and removes DB record
-- `getPhotosByPeak` - Returns public photos for a peak with signed URLs
+- `getPhotosByPeak` - Returns public photos for a peak with cursor-based pagination and signed URLs. Supports `cursor` (ISO timestamp) and `limit` (default 20, max 100) filters. Returns `{ photos, nextCursor, totalCount }`. Total count is only calculated on the first page for efficiency.
 - `getPhotosBySummit` - Returns owner's photos for a specific summit (for editing flows)
+- `getPublicPhotosBySummit` - Returns public photos for a specific summit (for community section). Only returns photos if summit is public AND user is public. Used by `PublicSummitCard` to show photos on public summit cards.
 
 ### Search Helpers (`helpers/search/`)
 - `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.

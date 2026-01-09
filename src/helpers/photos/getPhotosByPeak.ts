@@ -10,23 +10,78 @@ export type PublicPeakPhoto = {
     userName: string | null;
 };
 
+export interface PeakPhotosResult {
+    photos: PublicPeakPhoto[];
+    nextCursor: string | null;
+    totalCount: number;
+}
+
+export interface PeakPhotosFilters {
+    /** ISO timestamp cursor for pagination */
+    cursor?: string;
+    /** Max photos per page (default 20, max 100) */
+    limit?: number;
+}
+
+/**
+ * Get public photos for a peak with cursor-based pagination.
+ * Returns paginated photos ordered by taken_at DESC (most recent first).
+ */
 export const getPhotosByPeak = async (params: {
     peakId: string;
-    limit?: number;
-}): Promise<{ photos: PublicPeakPhoto[] }> => {
+    filters?: PeakPhotosFilters;
+}): Promise<PeakPhotosResult> => {
     const pool = await getCloudSqlConnection();
-    const { peakId, limit = 50 } = params;
+    const { peakId, filters = {} } = params;
+    const { cursor, limit = 20 } = filters;
 
     const safeLimit =
-        Number.isFinite(limit) && limit > 0 && limit <= 200 ? limit : 50;
+        Number.isFinite(limit) && limit > 0 && limit <= 100 ? limit : 20;
+
+    const queryParams: (string | number)[] = [peakId];
+    let paramIndex = 2;
+
+    // Build cursor clause for pagination
+    let cursorClause = "";
+    if (cursor) {
+        cursorClause = `AND (sp.taken_at < $${paramIndex}::timestamptz OR (sp.taken_at IS NULL AND sp.created_at < $${paramIndex}::timestamptz))`;
+        queryParams.push(cursor);
+        paramIndex++;
+    }
+
+    // Get total count (only on first page to avoid expensive count on every page)
+    let totalCount = 0;
+    if (!cursor) {
+        const countRes = await pool.query(
+            `
+            SELECT COUNT(*) as count
+            FROM summit_photos sp
+            JOIN users u ON u.id = sp.user_id AND u.is_public = true
+            LEFT JOIN activities_peaks ap ON ap.id = sp.activities_peaks_id
+            LEFT JOIN user_peak_manual upm ON upm.id = sp.user_peak_manual_id
+            WHERE
+              (
+                sp.activities_peaks_id IS NOT NULL
+                AND ap.peak_id = $1
+                AND ap.is_public = true
+              )
+              OR
+              (
+                sp.user_peak_manual_id IS NOT NULL
+                AND upm.peak_id = $1
+                AND upm.is_public = true
+              )
+            `,
+            [peakId]
+        );
+        totalCount = parseInt(countRes.rows[0]?.count || "0", 10);
+    }
+
+    // Add limit param
+    queryParams.push(safeLimit);
+    const limitParam = `$${paramIndex}`;
 
     // Public photos: only from public summits AND public users.
-    // activities_peaks path:
-    //  - filter ap.is_public = true
-    //  - filter users.is_public = true
-    // manual path:
-    //  - filter upm.is_public = true
-    //  - filter users.is_public = true
     const res = await pool.query(
         `
         SELECT
@@ -35,6 +90,7 @@ export const getPhotosByPeak = async (params: {
           sp.thumbnail_path,
           sp.caption,
           sp.taken_at,
+          sp.created_at,
           u.name AS user_name
         FROM summit_photos sp
         JOIN users u ON u.id = sp.user_id AND u.is_public = true
@@ -52,10 +108,11 @@ export const getPhotosByPeak = async (params: {
             AND upm.peak_id = $1
             AND upm.is_public = true
           )
+          ${cursorClause}
         ORDER BY sp.taken_at DESC NULLS LAST, sp.created_at DESC
-        LIMIT $2
+        LIMIT ${limitParam}::integer
         `,
-        [peakId, safeLimit]
+        queryParams
     );
 
     const bucket = getPhotosBucket();
@@ -86,16 +143,19 @@ export const getPhotosByPeak = async (params: {
                 fullUrl,
                 caption: row.caption ?? null,
                 takenAt: row.taken_at ? new Date(row.taken_at).toISOString() : null,
+                // Use taken_at for cursor, fall back to created_at
+                _cursorValue: row.taken_at 
+                    ? new Date(row.taken_at).toISOString() 
+                    : new Date(row.created_at).toISOString(),
                 userName: row.user_name ?? null,
-            } satisfies PublicPeakPhoto;
+            };
         })
     );
 
     // Filter out failed promises and log errors
     const successfulPhotos = photos
-        .filter((result): result is PromiseFulfilledResult<PublicPeakPhoto> => {
+        .filter((result): result is PromiseFulfilledResult<PublicPeakPhoto & { _cursorValue: string }> => {
             if (result.status === "rejected") {
-                // Log but don't fail the entire request
                 console.error("Failed to generate signed URL for photo:", result.reason);
                 return false;
             }
@@ -103,7 +163,19 @@ export const getPhotosByPeak = async (params: {
         })
         .map((result) => result.value);
 
-    return { photos: successfulPhotos };
+    // Determine next cursor (timestamp of last item if we got a full page)
+    const nextCursor = successfulPhotos.length === safeLimit && successfulPhotos.length > 0
+        ? successfulPhotos[successfulPhotos.length - 1]._cursorValue
+        : null;
+
+    // Strip internal cursor value from response
+    const cleanPhotos: PublicPeakPhoto[] = successfulPhotos.map(({ _cursorValue, ...photo }) => photo);
+
+    return { 
+        photos: cleanPhotos, 
+        nextCursor, 
+        totalCount 
+    };
 };
 
 export default getPhotosByPeak;

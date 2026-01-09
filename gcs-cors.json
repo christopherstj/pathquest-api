@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://pathquest.app", "pathquest://"],
+    "origin": ["https://pathquest.app", "http://localhost:3000", "pathquest://"],
     "method": ["GET", "PUT"],
     "responseHeader": ["Content-Type"],
     "maxAgeSeconds": 3600

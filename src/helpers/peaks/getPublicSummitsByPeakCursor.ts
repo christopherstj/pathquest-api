@@ -135,7 +135,6 @@ const getPublicSummitsByPeakCursor = async (
             WHERE ap.peak_id = $1
             AND ap.is_public = TRUE
             AND u.is_public = TRUE
-            AND (sp.id IS NULL OR photo_user.is_public = TRUE)
             ${cursorClause}
             GROUP BY ap.id, ap.timestamp, ap.notes, ap.is_public, ap.temperature, ap.precipitation,
                      ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity,

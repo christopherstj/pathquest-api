@@ -112,11 +112,11 @@ const getPublicSummitsByPeakCursor = async (
                         ELSE REPLACE(sp.storage_path, '.jpg', '_thumb.jpg')
                     END
                     ORDER BY sp.taken_at DESC NULLS LAST, sp.created_at DESC
-                ) FILTER (WHERE sp.id IS NOT NULL) AS photo_thumbnail_paths,
+                ) FILTER (WHERE sp.id IS NOT NULL AND photo_user.is_public = TRUE) AS photo_thumbnail_paths,
                 ARRAY_AGG(
                     sp.storage_path
                     ORDER BY sp.taken_at DESC NULLS LAST, sp.created_at DESC
-                ) FILTER (WHERE sp.id IS NOT NULL) AS photo_full_paths
+                ) FILTER (WHERE sp.id IS NOT NULL AND photo_user.is_public = TRUE) AS photo_full_paths
             FROM (
                 SELECT a.user_id, ap.id, ap.timestamp, ap.peak_id, ap.notes, ap.is_public, ap.temperature, ap.precipitation, ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity, ap.difficulty, ap.experience_rating, a.timezone, ap.condition_tags, ap.custom_condition_tags, 'activity'::text AS summit_type
                 FROM activities_peaks ap
@@ -131,9 +131,11 @@ const getPublicSummitsByPeakCursor = async (
                 (ap.summit_type = 'activity' AND sp.activities_peaks_id = ap.id) OR
                 (ap.summit_type = 'manual' AND sp.user_peak_manual_id = ap.id)
             )
+            LEFT JOIN users photo_user ON photo_user.id = sp.user_id
             WHERE ap.peak_id = $1
             AND ap.is_public = TRUE
             AND u.is_public = TRUE
+            AND (sp.id IS NULL OR photo_user.is_public = TRUE)
             ${cursorClause}
             GROUP BY ap.id, ap.timestamp, ap.notes, ap.is_public, ap.temperature, ap.precipitation,
                      ap.weather_code, ap.cloud_cover, ap.wind_speed, ap.wind_direction, ap.humidity,

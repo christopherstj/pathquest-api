@@ -113,6 +113,12 @@ Automatically detected summits may have low confidence scores and need user revi
 ### Utils (`/api/utils`)
 - `GET /timezone` — Get IANA timezone string for coordinates (public, query params: `lat`, `lng`)
 
+### Push Tokens (`/api/push-tokens`)
+- `POST /` — Register or update a push token for the authenticated user (auth, body: `{ token, platform }`)
+- `DELETE /:token` — Unregister a push token (auth)
+- `GET /preferences` — Get user's notification preferences (auth)
+- `PUT /preferences` — Update notification preferences (auth, body: `{ summit_logging_notifications? }`)
+
 ### Billing (`/api/billing`) — auth + owner
 - `POST /create-subscription`
 - `POST /delete-subscription`
@@ -209,6 +215,13 @@ Automatically detected summits may have low confidence scores and need user revi
 ### Search Helpers (`helpers/search/`)
 - `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.
 
+### Notifications Helpers (`helpers/notifications/`)
+- `registerPushToken` - Stores or updates a user's Expo push token in `user_push_tokens` table
+- `unregisterPushToken` - Removes a push token from the database
+- `getNotificationPreferences` - Retrieves user's notification preferences (summit_logging_notifications)
+- `updateNotificationPreferences` - Updates user's notification preferences
+- `sendSummitNotification` - Sends push notification when a summit is logged (checks preferences, fetches tokens, uses Expo Push API)
+
 ### User Helpers (`helpers/user/`)
 - `addUserData` - Used in routes
 - `addUserInterest` - Used in routes
@@ -265,7 +278,7 @@ Automatically detected summits may have low confidence scores and need user revi
 
 ## Database Schema (Inferred)
 Key tables:
-- `users` - User accounts
+- `users` - User accounts (includes `summit_logging_notifications` boolean for push notification preferences)
 - `activities` - Strava activities with coordinate data
 - `peaks` - Mountain peak catalog
 - `activities_peaks` - Junction table linking activities to summited peaks
@@ -278,6 +291,7 @@ Key tables:
 - `strava_rate_limits` - Tracks Strava API rate limit usage
 - `strava_tokens` - Stores Strava OAuth tokens
 - `summit_photos` - Photo metadata for summit reports (GCS-backed; supports activity + manual summits)
+- `user_push_tokens` - Expo push tokens for mobile devices (user_id, token, platform, timestamps)
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication
@@ -285,6 +299,7 @@ Key tables:
 - **Stripe**: Subscription billing
 - **Google Cloud Pub/Sub**: Message queue for activity processing
 - **Google Cloud Storage**: Private photo storage (signed URLs; thumbnails generated server-side)
+- **Expo Push Notifications**: Mobile push notifications via Expo's push service
 
 ## Photo Storage Setup (GCS)
 

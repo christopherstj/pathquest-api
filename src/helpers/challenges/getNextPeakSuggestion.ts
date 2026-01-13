@@ -65,20 +65,18 @@ const getNextPeakSuggestion = async (
                 p.id,
                 p.name,
                 p.elevation,
-                p.latitude,
-                p.longitude,
-                -- Haversine distance formula (result in km)
-                2 * 6371 * ASIN(SQRT(
-                    POWER(SIN(RADIANS(p.latitude - $3) / 2), 2) +
-                    COS(RADIANS($3)) * COS(RADIANS(p.latitude)) *
-                    POWER(SIN(RADIANS(p.longitude - $4) / 2), 2)
-                )) AS distance_km
+                ST_Y(p.location_coords::geometry)::float as latitude,
+                ST_X(p.location_coords::geometry)::float as longitude,
+                -- Distance from user location (km). PostGIS geography distance returns meters.
+                ST_Distance(
+                    p.location_coords,
+                    ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography
+                ) / 1000.0 AS distance_km
             FROM peaks p
             INNER JOIN challenge_peaks cp ON p.id = cp.peak_id
             LEFT JOIN user_summits us ON p.id = us.peak_id
             WHERE us.peak_id IS NULL
-            AND p.latitude IS NOT NULL
-            AND p.longitude IS NOT NULL
+            AND p.location_coords IS NOT NULL
         ),
         closest AS (
             SELECT id, name, elevation, latitude, longitude, distance_km

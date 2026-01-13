@@ -36,6 +36,8 @@ import getCurrentWeather from "../helpers/peaks/getCurrentWeather";
 import getPeakForecast from "../helpers/peaks/getPeakForecast";
 import flagPeakForReview from "../helpers/peaks/flagPeakForReview";
 import getPhotosByPeak from "../helpers/photos/getPhotosByPeak";
+// sendSummitNotification is used by activity sync, not manual summit routes
+// import sendSummitNotification from "../helpers/notifications/sendSummitNotification";
 
 const peaks = (fastify: FastifyInstance, _: any, done: any) => {
     fastify.get<{
@@ -431,6 +433,10 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 return;
             }
             await addManualPeakSummit(data);
+            
+            // Note: No push notification for manual summits - user already knows they summited
+            // Notifications are sent for auto-detected summits from Strava activity sync
+            
             reply.code(200).send({ message: "Summit added" });
         }
     );
@@ -672,6 +678,9 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             }
 
             await updateAscent(ascent);
+
+            // Note: No push notification for ascent updates - user already knows about their summit
+            // Notifications are sent for auto-detected summits from Strava activity sync
 
             reply.code(200).send();
         }

@@ -11,6 +11,7 @@ import billing from "./routes/billing";
 import user from "./routes/user";
 import dashboard from "./routes/dashboard";
 import photos from "./routes/photos";
+import pushTokens from "./routes/push-tokens";
 import utils from "./routes/utils";
 import authPlugin from "./plugins/auth";
 
@@ -30,6 +31,7 @@ fastify.register(challenges, { prefix: "/api/challenges" });
 fastify.register(activities, { prefix: "/api/activities" });
 fastify.register(dashboard, { prefix: "/api/dashboard" });
 fastify.register(photos, { prefix: "/api/photos" });
+fastify.register(pushTokens, { prefix: "/api/push-tokens" });
 fastify.register(utils, { prefix: "/api/utils" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {

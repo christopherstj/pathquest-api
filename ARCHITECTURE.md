@@ -37,6 +37,7 @@ Owner checks rely on `request.user.id` extracted from the verified token. If no 
 ### Mobile Auth (`/api/auth/mobile`)
 - `POST /strava/exchange` — Exchange Strava PKCE authorization code for PathQuest tokens. Accepts `{ code, codeVerifier }`, returns `{ accessToken, refreshToken, expiresAt, user }` (public)
 - `POST /refresh` — Refresh an expired access token. Accepts `{ refreshToken }`, returns `{ accessToken, expiresAt }` (public)
+- `POST /demo-login` — Demo login for Google Play reviewers. Accepts `{ password }`, returns `{ accessToken, refreshToken, expiresAt, user }`. Requires `DEMO_USER_PASSWORD` and `DEMO_USER_ID` env vars to be configured. (public, password-protected)
 
 ### Users (`/api/users`)
 - `GET /:userId` — Public profile, private when requester matches (optional auth)

@@ -37,3 +37,5 @@ COMMENT ON COLUMN user_push_tokens.user_id IS 'Reference to the user who owns th
 COMMENT ON COLUMN user_push_tokens.token IS 'Expo push notification token';
 COMMENT ON COLUMN user_push_tokens.platform IS 'Device platform (ios or android)';
 
+
+

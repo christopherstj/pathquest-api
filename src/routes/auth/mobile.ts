@@ -10,6 +10,10 @@ import { verifyMobileRefreshToken } from "../../helpers/auth/verifyMobileToken";
 const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID ?? "";
 const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET ?? "";
 
+// Demo login credentials for Google Play review
+const DEMO_USER_PASSWORD = process.env.DEMO_USER_PASSWORD ?? "";
+const DEMO_USER_ID = process.env.DEMO_USER_ID ?? "demo-reviewer";
+
 interface StravaAthleteResponse {
     id: number;
     username: string | null;
@@ -203,6 +207,82 @@ const mobileAuth = (fastify: FastifyInstance, _: any, done: any) => {
         reply.code(200).send({
             accessToken,
             expiresAt,
+        });
+    });
+
+    /**
+     * POST /api/auth/mobile/demo-login
+     * 
+     * Demo login endpoint for Google Play reviewers.
+     * Bypasses Strava OAuth and returns tokens for a pre-configured demo user.
+     * Requires a secret password to prevent abuse.
+     */
+    fastify.post<{
+        Body: {
+            password: string;
+        };
+    }>("/demo-login", async (request, reply) => {
+        const { password } = request.body;
+
+        // Validate password
+        if (!password || typeof password !== "string") {
+            reply.code(400).send({ message: "Missing or invalid password" });
+            return;
+        }
+
+        // Check if demo login is configured
+        if (!DEMO_USER_PASSWORD) {
+            reply.code(503).send({ message: "Demo login is not configured" });
+            return;
+        }
+
+        // Verify password (constant-time comparison would be better but this is fine for a demo)
+        if (password !== DEMO_USER_PASSWORD) {
+            reply.code(401).send({ message: "Invalid credentials" });
+            return;
+        }
+
+        // Fetch or create demo user
+        let user = await getUser(DEMO_USER_ID);
+        
+        if (!user) {
+            // Create the demo user if it doesn't exist
+            await createUser({ 
+                id: DEMO_USER_ID, 
+                name: "Demo Reviewer", 
+                email: "demo@pathquest.app" 
+            });
+            user = await getUser(DEMO_USER_ID);
+        }
+
+        if (!user) {
+            fastify.log.error("Failed to create or fetch demo user");
+            reply.code(500).send({ message: "Internal server error" });
+            return;
+        }
+
+        // Mint PathQuest session tokens
+        const tokens = mintMobileToken({
+            sub: DEMO_USER_ID,
+            email: user.email,
+            name: user.name,
+            isPublic: user.is_public,
+        });
+
+        reply.code(200).send({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                pic: user.pic,
+                city: user.city,
+                state: user.state,
+                country: user.country,
+                isPublic: user.is_public,
+            },
         });
     });
 

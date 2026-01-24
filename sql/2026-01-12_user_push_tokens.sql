@@ -39,3 +39,4 @@ COMMENT ON COLUMN user_push_tokens.platform IS 'Device platform (ios or android)
 
 
 
+

@@ -32,7 +32,8 @@ const getUnconfirmedSummits = async (
         LEFT JOIN activities a ON ap.activity_id = a.id
         LEFT JOIN peaks p ON ap.peak_id = p.id
         WHERE a.user_id = $1 
-          AND ap.confirmation_status = 'unconfirmed'
+          AND ap.needs_confirmation = true
+          AND COALESCE(ap.confirmation_status, 'auto_confirmed') NOT IN ('user_confirmed', 'denied')
         ORDER BY ap.timestamp DESC
         ${limit ? `LIMIT ${limit}` : ''}
     `;

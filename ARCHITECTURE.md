@@ -111,6 +111,23 @@ Automatically detected summits may have low confidence scores and need user revi
 - `GET /by-summit` — Get photos for a specific summit (auth, owner only)
 - `GET /by-summit/public` — Get public photos for a specific summit (no auth, only returns photos from public summits by public users)
 
+### Search (`/api/search`)
+- `GET /` — Unified relevancy-based search for peaks and challenges (optional auth)
+  - **Query params**:
+    - `q` (required): Search query string
+    - `lat`, `lng` (optional): Center coordinates for geographic relevancy scoring
+    - `bounds` (optional): Viewport bounds as `"minLng,minLat,maxLng,maxLat"` for viewport boosting
+    - `limit` (optional): Max results (default 20, max 100)
+    - `includePeaks` (optional): Include peaks in results (default true)
+    - `includeChallenges` (optional): Include challenges in results (default true)
+  - **Returns**: `{ results: UnifiedSearchResult[], totalPeaks: number, totalChallenges: number }`
+  - **Relevancy scoring factors**:
+    - Text match quality (exact, prefix, contains, fuzzy) — 35%
+    - Geographic proximity to search center — 30%
+    - Public popularity (summit counts, activity) — 25%
+    - Personal relevance (user summits, favorites) — 10%
+  - **Viewport boost**: Results within bounds get 1.3x score multiplier
+
 ### Utils (`/api/utils`)
 - `GET /timezone` — Get IANA timezone string for coordinates (public, query params: `lat`, `lng`)
 
@@ -214,7 +231,15 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getPublicPhotosBySummit` - Returns public photos for a specific summit (for community section). Only returns photos if summit is public AND user is public. Used by `PublicSummitCard` to show photos on public summit cards.
 
 ### Search Helpers (`helpers/search/`)
-- `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns.
+- `expandSearchTerm` - Expands search abbreviations (mt→mount, mtn→mountain, pk→peak, pt→point, etc.). Returns array of search variations. Also exports `getPrimaryExpansion` for the main expanded form and `buildSearchPatterns` for SQL ILIKE patterns. Note: State abbreviations (nh, co, ca, wa) are NOT expanded here to avoid ambiguity.
+- `unifiedSearch` - Unified relevancy-based search combining peaks and challenges. Returns ranked results with relevancy scores and factor breakdowns. Features:
+  - **Searchable text**: For peaks, matches against a computed field combining `name + state abbreviation + full state name + country` (e.g., "Mount Washington NH New Hampshire United States"). This allows searches like "mt washington nh" to work naturally without client-side state parsing.
+  - **Text matching**: Exact name match (1.0), name prefix match (0.85), name contains (0.7), searchable_text contains (0.6), trigram similarity (0.4)
+  - **Geographic scoring**: Inverse distance from search center (up to 500km radius)
+  - **Popularity scoring**: Normalized public summit counts (peaks) or recent activity (challenges)
+  - **Personal relevance**: Boost for user's favorited/summited items (when authenticated)
+  - **Viewport boost**: 1.3x multiplier for results within map bounds
+  - **Configurable weights**: textMatch (35%), geoProximity (30%), publicPopularity (25%), personalRelevance (10%)
 
 ### Notifications Helpers (`helpers/notifications/`)
 - `registerPushToken` - Stores or updates a user's Expo push token in `user_push_tokens` table

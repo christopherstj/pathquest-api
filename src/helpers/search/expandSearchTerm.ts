@@ -30,11 +30,10 @@ const SEARCH_SYNONYMS: Record<string, string[]> = {
     st: ["saint"],
     lk: ["lake"],
     
-    // State-related (less common but useful)
-    nh: ["new hampshire"],
-    co: ["colorado"],
-    ca: ["california"],
-    wa: ["washington"],
+    // Note: State abbreviations (nh, co, ca, wa) are NOT expanded here.
+    // Instead, the unified search matches against a searchable_text field
+    // that includes both state abbreviation and full name.
+    // This avoids issues like "mt washington" being misinterpreted as Montana or Washington state.
 };
 
 /**

@@ -13,6 +13,7 @@ import dashboard from "./routes/dashboard";
 import photos from "./routes/photos";
 import pushTokens from "./routes/push-tokens";
 import utils from "./routes/utils";
+import search from "./routes/search";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -33,6 +34,7 @@ fastify.register(dashboard, { prefix: "/api/dashboard" });
 fastify.register(photos, { prefix: "/api/photos" });
 fastify.register(pushTokens, { prefix: "/api/push-tokens" });
 fastify.register(utils, { prefix: "/api/utils" });
+fastify.register(search, { prefix: "/api/search" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

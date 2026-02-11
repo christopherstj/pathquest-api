@@ -146,9 +146,10 @@ const scorePrecip = (prob: number | null, sum: number | null) => {
 const scoreTemp = (hi: number | null, lo: number | null) => {
     if (hi === null || lo === null) return 70;
     const avg = (hi + lo) / 2;
+    const boundary = 93.75; // value at 0°C and 25°C from comfort zone formula
     if (avg >= 0 && avg <= 25) return Math.round(100 - Math.abs(avg - 12.5) * 0.5);
-    if (avg < 0) return Math.max(0, Math.round(70 + avg * 3.5));
-    return Math.max(0, Math.round(100 - (avg - 25) * 5));
+    if (avg < 0) return Math.max(0, Math.round(boundary + avg * (boundary / 20)));
+    return Math.max(0, Math.round(boundary - (avg - 25) * (boundary / 20)));
 };
 
 const scoreStorm = (hourlyProb: number[] | undefined, offset: number) => {
@@ -279,8 +280,12 @@ const triggerOnDemandWeatherFetch = async (peakId: string): Promise<void> => {
         const recentWeather = resolveRecentWeather(historical);
         const summitWindow = resolveSummitWindow(forecast);
 
-        // Store raw data
+        // Store raw data — delete previous then insert to keep only latest
         const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        await db.query(
+            `DELETE FROM conditions_data WHERE peak_id = $1 AND source = 'open_meteo_forecast'`,
+            [peakId]
+        );
         await db.query(
             `INSERT INTO conditions_data (peak_id, source, data, expires_at) VALUES ($1, 'open_meteo_forecast', $2, $3)`,
             [peakId, JSON.stringify(forecast), expiresAt]

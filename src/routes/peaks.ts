@@ -394,10 +394,14 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         };
     }>("/:id/summit-window", async function (request, reply) {
         const peakId = request.params.id;
+        const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-        const summitWindow = await getSummitWindow(peakId);
+        // Check cached conditions for staleness
+        const conditions = await getPeakConditionsHelper(peakId);
+        const isStale = !conditions?.weather_updated_at ||
+            Date.now() - new Date(conditions.weather_updated_at).getTime() > STALE_THRESHOLD_MS;
 
-        if (!summitWindow) {
+        if (!conditions?.summit_window || isStale) {
             // Trigger on-demand fetch and retry
             await triggerOnDemandWeatherFetch(peakId);
             const retried = await getSummitWindow(peakId);
@@ -411,7 +415,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             return;
         }
 
-        reply.code(200).send(summitWindow);
+        reply.code(200).send(conditions.summit_window);
     });
 
     // Flag a peak for coordinate review

@@ -116,10 +116,12 @@ const getPublicActivity = async (
 
     // Check if there's any public data to show
     const hasTripReport = activity.trip_report_is_public && activity.trip_report;
+    const hasConditionTags = activity.trip_report_is_public &&
+        activity.condition_tags && activity.condition_tags.length > 0;
     const hasPublicSummits = summitsResult.rows.length > 0;
     const hasDisplayTitle = !!activity.display_title;
 
-    if (!hasTripReport && !hasPublicSummits && !hasDisplayTitle) {
+    if (!hasTripReport && !hasConditionTags && !hasPublicSummits && !hasDisplayTitle) {
         return null;
     }
 

@@ -363,17 +363,45 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 ),
             ]);
 
-            // Return a compatible fallback shape
+            // Return a compatible fallback shape — pad daily items to match
+            // the resolveWeatherForecast output so clients get a consistent schema
+            const daily = forecast.daily.map(d => ({
+                ...d,
+                precipSum: null,
+                snowfallSum: null,
+                windGusts: null,
+                daylightSeconds: null,
+                uvIndexMax: null,
+            }));
+
             reply.code(200).send({
                 peakId,
                 weather: {
                     current: weather,
-                    daily: forecast.daily,
+                    daily,
                     timezone: null,
                 },
                 recentWeather: null,
                 summitWindow: null,
                 weatherUpdatedAt: new Date().toISOString(),
+                avalanche: null,
+                avalancheUpdatedAt: null,
+                snotel: null,
+                snotelUpdatedAt: null,
+                nwsAlerts: null,
+                nwsAlertsUpdatedAt: null,
+                streamFlow: null,
+                streamFlowUpdatedAt: null,
+                trailConditions: null,
+                trailConditionsUpdatedAt: null,
+                airQuality: null,
+                airQualityUpdatedAt: null,
+                fireProximity: null,
+                fireProximityUpdatedAt: null,
+                roadAccess: null,
+                roadAccessUpdatedAt: null,
+                gearRecommendations: null,
+                gearUpdatedAt: null,
             });
             return;
         }
@@ -384,6 +412,24 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             recentWeather: conditions.recent_weather,
             summitWindow: conditions.summit_window,
             weatherUpdatedAt: conditions.weather_updated_at?.toISOString() ?? null,
+            avalanche: conditions.avalanche_forecast,
+            avalancheUpdatedAt: conditions.avalanche_updated_at?.toISOString() ?? null,
+            snotel: conditions.snotel_data,
+            snotelUpdatedAt: conditions.snotel_updated_at?.toISOString() ?? null,
+            nwsAlerts: conditions.nws_alerts,
+            nwsAlertsUpdatedAt: conditions.nws_alerts_updated_at?.toISOString() ?? null,
+            streamFlow: conditions.stream_flow,
+            streamFlowUpdatedAt: conditions.stream_flow_updated_at?.toISOString() ?? null,
+            trailConditions: conditions.trail_conditions,
+            trailConditionsUpdatedAt: conditions.trail_conditions_updated_at?.toISOString() ?? null,
+            airQuality: conditions.air_quality,
+            airQualityUpdatedAt: conditions.air_quality_updated_at?.toISOString() ?? null,
+            fireProximity: conditions.fire_proximity,
+            fireProximityUpdatedAt: conditions.fire_proximity_updated_at?.toISOString() ?? null,
+            roadAccess: conditions.road_access,
+            roadAccessUpdatedAt: conditions.road_access_updated_at?.toISOString() ?? null,
+            gearRecommendations: conditions.gear_recommendations,
+            gearUpdatedAt: conditions.gear_updated_at?.toISOString() ?? null,
         });
     });
 

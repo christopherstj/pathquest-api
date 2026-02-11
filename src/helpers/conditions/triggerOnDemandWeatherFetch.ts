@@ -280,14 +280,14 @@ const triggerOnDemandWeatherFetch = async (peakId: string): Promise<void> => {
         const recentWeather = resolveRecentWeather(historical);
         const summitWindow = resolveSummitWindow(forecast);
 
-        // Store raw data — delete previous then insert to keep only latest
+        // Store raw data — atomic delete+insert via CTE to avoid race conditions
         const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
         await db.query(
-            `DELETE FROM conditions_data WHERE peak_id = $1 AND source = 'open_meteo_forecast'`,
-            [peakId]
-        );
-        await db.query(
-            `INSERT INTO conditions_data (peak_id, source, data, expires_at) VALUES ($1, 'open_meteo_forecast', $2, $3)`,
+            `WITH del AS (
+                DELETE FROM conditions_data WHERE peak_id = $1 AND source = 'open_meteo_forecast'
+            )
+            INSERT INTO conditions_data (peak_id, source, data, expires_at)
+            VALUES ($1, 'open_meteo_forecast', $2, $3)`,
             [peakId, JSON.stringify(forecast), expiresAt]
         );
 

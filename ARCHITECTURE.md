@@ -73,6 +73,23 @@ User profiles follow the same privacy model as activities:
 - `GET /:activityId/coords` — Activity coords (owner check) — auth required
 - `DELETE /:activityId` — Delete (owner check) — auth required
 - `POST /reprocess` — Re-run summit detection `{ activityId }` (owner check) — auth required
+- `PUT /:activityId/report` — Update activity trip report `{ tripReport?, tripReportIsPublic?, displayTitle?, conditionTags? }` (owner check) — auth required. Automatically sets `is_reviewed = TRUE`.
+- `POST /:activityId/dismiss` — Dismiss activity review (sets `is_reviewed = TRUE` without adding a trip report) (owner check) — auth required
+- `GET /:activityId/public` — Public activity data (PathQuest-owned data only, no Strava data) — no auth. Returns display_title, trip_report (if public), condition_tags (if public), start_time, timezone, user info (if public), and summits with peak data.
+
+#### Activity Trip Reports
+Activities support trip reports with the following fields:
+- `trip_report` (TEXT) — Activity-level narrative (logistics, parking, crew, story)
+- `trip_report_is_public` (BOOLEAN, default TRUE) — Privacy toggle for the trip report
+- `display_title` (VARCHAR(255)) — User-editable title (PathQuest-owned, auto-generated from detected peaks)
+- `condition_tags` (TEXT[]) — General conditions that day (weather, trail state)
+- `is_reviewed` (BOOLEAN, default FALSE) — Whether user has reviewed/dismissed this activity
+
+**Auto-generated display titles**: When summits are detected, `display_title` is automatically generated from the sport type and peak names (e.g., "Hike up Mount Whitney", "Run up Mount Washington and Mount Jefferson"). User edits are preserved (only auto-generates if NULL).
+
+**Data model philosophy**:
+- **Activity level** = "How was the day?" → `trip_report` (narrative) + `condition_tags` (conditions)
+- **Summit level** = "How was this peak?" → `difficulty` + `notes` (peak-specific beta)
 
 #### Activity Privacy Model
 **Strava API Compliance**: Per Strava guidelines, "Strava Data provided by a specific user can only be displayed or disclosed in your Developer Application to that user." All activity endpoints are now owner-only.
@@ -89,6 +106,8 @@ Access rules:
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
+- Conditions (public): `GET /:id/conditions` (full conditions with 2hr staleness check + on-demand refresh), `GET /:id/summit-window` (7-day climbability scores with 2hr staleness check)
+- Weather (public): `GET /:id/weather` (current weather), `GET /:id/forecast` (7-day forecast)
 
 #### Summit Confirmation Flow
 Automatically detected summits may have low confidence scores and need user review:
@@ -149,7 +168,7 @@ Automatically detected summits may have low confidence scores and need user revi
 ### Activities Helpers (`helpers/activities/`)
 - `getActivitiesByPeak` - Used in routes
 - `getActivitiesProcessing` - Used in routes
-- `getActivityById` - Used internally by `getActivityDetails`
+- `getActivityById` - Used internally by `getActivityDetails`. Now includes trip report fields (trip_report, trip_report_is_public, display_title, condition_tags, is_reviewed)
 - `getActivityDetails` - Used in routes. Returns activity + flat list of summits (with peak data nested in each summit)
 - `getActivityOwnerId` - Used in routes
 - `getActivityWithPrivacy` - Used in routes for privacy-aware activity access
@@ -164,6 +183,9 @@ Automatically detected summits may have low confidence scores and need user revi
 - `searchNearestActivities` - Used in routes
 - `setReprocessingStatus` - Used internally by `reprocessActivity`
 - `deleteActivity` - Used in routes
+- `updateActivityReport` - Used in routes. Updates trip_report, trip_report_is_public, display_title, condition_tags. Automatically sets is_reviewed = TRUE. Returns updated activity.
+- `dismissActivityReview` - Used in routes. Sets is_reviewed = TRUE without modifying trip report fields. Returns { success: boolean }.
+- `getPublicActivity` - Used in routes. Returns PathQuest-owned activity data only (no Strava data). Includes display_title, trip_report (if public), condition_tags (if public), start_time, timezone, user info (if public), and summits with peak data. Returns null if activity has no public data.
 
 ### Challenges Helpers (`helpers/challenges/`)
 - `addChallengeFavorite` - Used in routes
@@ -287,6 +309,12 @@ Automatically detected summits may have low confidence scores and need user revi
   
   Respects user privacy settings - returns 404 for private users if not owner.
 
+### Conditions Helpers (`helpers/conditions/`)
+- `getPeakConditions` - Reads full `peak_conditions` row for a peak from the database
+- `getSummitWindow` - Reads just the `summit_window` JSONB column from `peak_conditions`
+- `triggerOnDemandWeatherFetch` - Self-contained Open-Meteo fetch + resolve + upsert for a single peak. Fetches 7-day forecast (168 hourly hours) + 7-day historical data, computes summit window scores, and stores in `peak_conditions`. Does not call the conditions-ingester worker (avoids IAM issues with Cloud Run).
+- `recordPeakView` - Fire-and-forget upsert to `peak_fetch_priority`. Tracks peak views for smart tiered fetching with 7-day rolling window decay (resets count when last view was >7 days ago).
+
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)
 - `checkRateLimit` - **UNUSED** - Not imported in routes
@@ -318,6 +346,9 @@ Key tables:
 - `strava_tokens` - Stores Strava OAuth tokens
 - `summit_photos` - Photo metadata for summit reports (GCS-backed; supports activity + manual summits)
 - `user_push_tokens` - Expo push tokens for mobile devices (user_id, token, platform, timestamps)
+- `conditions_data` - Raw ingested conditions data (source-level cache, JSONB)
+- `peak_conditions` - Per-peak resolved conditions for UI (weather_forecast, recent_weather, summit_window as JSONB, plus future data source columns)
+- `peak_fetch_priority` - Smart fetching tier tracking (tier, last_viewed_at, view_count_7d with 7-day rolling decay)
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication

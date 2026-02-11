@@ -15,7 +15,8 @@ const getActivityById = async (
                      FROM (SELECT (dp).geom, (dp).path FROM ST_DumpPoints(a.coords::geometry) dp) pts) as coords,
                     a.vert_profile, a.distance_stream, a.time_stream,
                     a.start_time, a.sport, a.timezone, a.gain,
-                    pending_reprocess = true AS reprocessing
+                    pending_reprocess = true AS reprocessing,
+                    a.trip_report, a.trip_report_is_public, a.display_title, a.condition_tags, a.is_reviewed
                 FROM activities a
                 WHERE a.id = $1
                 LIMIT 1

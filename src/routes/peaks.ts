@@ -36,6 +36,10 @@ import getCurrentWeather from "../helpers/peaks/getCurrentWeather";
 import getPeakForecast from "../helpers/peaks/getPeakForecast";
 import flagPeakForReview from "../helpers/peaks/flagPeakForReview";
 import getPhotosByPeak from "../helpers/photos/getPhotosByPeak";
+import getPeakConditionsHelper from "../helpers/conditions/getPeakConditions";
+import getSummitWindow from "../helpers/conditions/getSummitWindow";
+import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWeatherFetch";
+import recordPeakView from "../helpers/conditions/recordPeakView";
 // sendSummitNotification is used by activity sync, not manual summit routes
 // import sendSummitNotification from "../helpers/notifications/sendSummitNotification";
 
@@ -176,6 +180,9 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 return;
             }
 
+            // Fire-and-forget: track peak view for smart fetching priority
+            recordPeakView(peakId);
+
             const publicSummits = await getPublicSummitsByPeak(peakId);
             const challenges = await getChallengesByPeak(peakId, userId ?? "");
 
@@ -311,6 +318,150 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         );
         
         reply.code(200).send(forecast);
+    });
+
+    // Get full conditions for a peak (weather, recent weather, summit window)
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+    }>("/:id/conditions", async function (request, reply) {
+        const peakId = request.params.id;
+        const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+        // Try reading cached conditions
+        let conditions = await getPeakConditionsHelper(peakId);
+
+        // If missing or weather is stale, trigger on-demand fetch
+        const isStale = !conditions?.weather_updated_at ||
+            Date.now() - new Date(conditions.weather_updated_at).getTime() > STALE_THRESHOLD_MS;
+
+        if (isStale) {
+            // Try triggering on-demand ingestion
+            await triggerOnDemandWeatherFetch(peakId);
+
+            // Re-read after trigger (the ingester responds synchronously)
+            conditions = await getPeakConditionsHelper(peakId);
+        }
+
+        // If still no conditions, fall back to live Open-Meteo fetch
+        if (!conditions?.weather_forecast) {
+            const peak = await getPeakById(peakId, "");
+            if (!peak || !peak.location_coords) {
+                reply.code(404).send({ message: "Peak not found" });
+                return;
+            }
+
+            const [weather, forecast] = await Promise.all([
+                getCurrentWeather(
+                    { lat: peak.location_coords[1], lon: peak.location_coords[0] },
+                    peak.elevation ?? undefined
+                ),
+                getPeakForecast(
+                    { lat: peak.location_coords[1], lon: peak.location_coords[0] },
+                    peak.elevation ?? undefined
+                ),
+            ]);
+
+            // Return a compatible fallback shape — pad daily items to match
+            // the resolveWeatherForecast output so clients get a consistent schema
+            const daily = forecast.daily.map(d => ({
+                ...d,
+                precipSum: null,
+                snowfallSum: null,
+                windGusts: null,
+                daylightSeconds: null,
+                uvIndexMax: null,
+            }));
+
+            reply.code(200).send({
+                peakId,
+                weather: {
+                    current: weather,
+                    daily,
+                    timezone: null,
+                },
+                recentWeather: null,
+                summitWindow: null,
+                weatherUpdatedAt: new Date().toISOString(),
+                avalanche: null,
+                avalancheUpdatedAt: null,
+                snotel: null,
+                snotelUpdatedAt: null,
+                nwsAlerts: null,
+                nwsAlertsUpdatedAt: null,
+                streamFlow: null,
+                streamFlowUpdatedAt: null,
+                trailConditions: null,
+                trailConditionsUpdatedAt: null,
+                airQuality: null,
+                airQualityUpdatedAt: null,
+                fireProximity: null,
+                fireProximityUpdatedAt: null,
+                roadAccess: null,
+                roadAccessUpdatedAt: null,
+                gearRecommendations: null,
+                gearUpdatedAt: null,
+            });
+            return;
+        }
+
+        reply.code(200).send({
+            peakId: conditions.peak_id,
+            weather: conditions.weather_forecast,
+            recentWeather: conditions.recent_weather,
+            summitWindow: conditions.summit_window,
+            weatherUpdatedAt: conditions.weather_updated_at?.toISOString() ?? null,
+            avalanche: conditions.avalanche_forecast,
+            avalancheUpdatedAt: conditions.avalanche_updated_at?.toISOString() ?? null,
+            snotel: conditions.snotel_data,
+            snotelUpdatedAt: conditions.snotel_updated_at?.toISOString() ?? null,
+            nwsAlerts: conditions.nws_alerts,
+            nwsAlertsUpdatedAt: conditions.nws_alerts_updated_at?.toISOString() ?? null,
+            streamFlow: conditions.stream_flow,
+            streamFlowUpdatedAt: conditions.stream_flow_updated_at?.toISOString() ?? null,
+            trailConditions: conditions.trail_conditions,
+            trailConditionsUpdatedAt: conditions.trail_conditions_updated_at?.toISOString() ?? null,
+            airQuality: conditions.air_quality,
+            airQualityUpdatedAt: conditions.air_quality_updated_at?.toISOString() ?? null,
+            fireProximity: conditions.fire_proximity,
+            fireProximityUpdatedAt: conditions.fire_proximity_updated_at?.toISOString() ?? null,
+            roadAccess: conditions.road_access,
+            roadAccessUpdatedAt: conditions.road_access_updated_at?.toISOString() ?? null,
+            gearRecommendations: conditions.gear_recommendations,
+            gearUpdatedAt: conditions.gear_updated_at?.toISOString() ?? null,
+        });
+    });
+
+    // Get 7-day summit window scoring for a peak
+    fastify.get<{
+        Params: {
+            id: string;
+        };
+    }>("/:id/summit-window", async function (request, reply) {
+        const peakId = request.params.id;
+        const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+        // Check cached conditions for staleness
+        const conditions = await getPeakConditionsHelper(peakId);
+        const isStale = !conditions?.weather_updated_at ||
+            Date.now() - new Date(conditions.weather_updated_at).getTime() > STALE_THRESHOLD_MS;
+
+        if (!conditions?.summit_window || isStale) {
+            // Trigger on-demand fetch and retry
+            await triggerOnDemandWeatherFetch(peakId);
+            const retried = await getSummitWindow(peakId);
+
+            if (!retried) {
+                reply.code(404).send({ message: "Summit window not available for this peak" });
+                return;
+            }
+
+            reply.code(200).send(retried);
+            return;
+        }
+
+        reply.code(200).send(conditions.summit_window);
     });
 
     // Flag a peak for coordinate review

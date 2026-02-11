@@ -76,13 +76,12 @@ const getPublicActivity = async (
 
     const activity = activityResult.rows[0];
 
-    // Get public summits with peak info
+    // Get public summits with peak info — only include explicitly public summits
     const summitsResult = await db.query<{
         id: string;
         timestamp: string;
         notes: string | null;
         difficulty: string | null;
-        is_public: boolean | null;
         peak_id: string;
         peak_name: string;
         peak_elevation: number | null;
@@ -90,12 +89,11 @@ const getPublicActivity = async (
         peak_country: string | null;
     }>(
         `
-        SELECT 
+        SELECT
             ap.id,
             ap.timestamp,
             ap.notes,
             ap.difficulty,
-            ap.is_public,
             p.id as peak_id,
             p.name as peak_name,
             p.elevation as peak_elevation,
@@ -105,14 +103,20 @@ const getPublicActivity = async (
         JOIN peaks p ON ap.peak_id = p.id
         WHERE ap.activity_id = $1
           AND COALESCE(ap.confirmation_status, 'auto_confirmed') != 'denied'
+          AND ap.is_public = true
         ORDER BY ap.timestamp
         `,
         [activityId]
     );
 
+    // Private users: return nothing (consistent with 404-not-403 pattern)
+    if (!activity.user_is_public) {
+        return null;
+    }
+
     // Check if there's any public data to show
     const hasTripReport = activity.trip_report_is_public && activity.trip_report;
-    const hasPublicSummits = summitsResult.rows.some(s => s.is_public !== false);
+    const hasPublicSummits = summitsResult.rows.length > 0;
     const hasDisplayTitle = !!activity.display_title;
 
     if (!hasTripReport && !hasPublicSummits && !hasDisplayTitle) {
@@ -151,32 +155,20 @@ const getPublicActivity = async (
         };
     }
 
-    // Build summits array
-    response.summits = summitsResult.rows.map(summit => {
-        const summitResponse: PublicActivitySummit = {
-            id: summit.id,
-            timestamp: summit.timestamp,
-            peak: {
-                id: summit.peak_id,
-                name: summit.peak_name,
-                elevation: summit.peak_elevation ?? undefined,
-                state: summit.peak_state ?? undefined,
-                country: summit.peak_country ?? undefined,
-            },
-        };
-
-        // Only include notes and difficulty if summit is public
-        if (summit.is_public !== false) {
-            if (summit.notes) {
-                summitResponse.notes = summit.notes;
-            }
-            if (summit.difficulty) {
-                summitResponse.difficulty = summit.difficulty;
-            }
-        }
-
-        return summitResponse;
-    });
+    // Build summits array — all rows are already filtered to public only
+    response.summits = summitsResult.rows.map(summit => ({
+        id: summit.id,
+        timestamp: summit.timestamp,
+        peak: {
+            id: summit.peak_id,
+            name: summit.peak_name,
+            elevation: summit.peak_elevation ?? undefined,
+            state: summit.peak_state ?? undefined,
+            country: summit.peak_country ?? undefined,
+        },
+        notes: summit.notes ?? undefined,
+        difficulty: summit.difficulty ?? undefined,
+    }));
 
     return response;
 };

@@ -256,7 +256,7 @@ const triggerOnDemandWeatherFetch = async (peakId: string): Promise<void> => {
                 `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,cloud_cover,precipitation,is_day` +
                 `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,cloud_cover` +
                 `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,snowfall_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,cloud_cover_mean,sunrise,sunset,daylight_duration,uv_index_max` +
-                elevParam + `&timezone=auto&forecast_days=7&forecast_hours=48`
+                elevParam + `&timezone=auto&forecast_days=7&forecast_hours=168`
             ),
             fetch(
                 `https://archive-api.open-meteo.com/v1/archive?` +

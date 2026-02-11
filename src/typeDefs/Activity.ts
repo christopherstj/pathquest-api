@@ -14,4 +14,10 @@ export default interface Activity {
     gain?: number;
     reprocessing: boolean;
     peak_summits?: number;
+    // Trip report fields
+    trip_report?: string;
+    trip_report_is_public?: boolean;
+    display_title?: string;
+    condition_tags?: string[];
+    is_reviewed?: boolean;
 }

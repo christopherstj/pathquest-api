@@ -8,6 +8,10 @@ import searchNearestActivities from "../helpers/activities/searchNearestActiviti
 import deleteActivity from "../helpers/activities/deleteActivity";
 import getActivityOwnerId from "../helpers/activities/getActivityOwnerId";
 import reprocessActivity from "../helpers/activities/reprocessActivity";
+import updateActivityReport from "../helpers/activities/updateActivityReport";
+import dismissActivityReview from "../helpers/activities/dismissActivityReview";
+import getPublicActivity from "../helpers/activities/getPublicActivity";
+import getUnreviewedActivities from "../helpers/activities/getUnreviewedActivities";
 import { ensureOwner } from "../helpers/authz";
 
 const activities = (fastify: FastifyInstance, _: any, done: any) => {
@@ -31,6 +35,31 @@ const activities = (fastify: FastifyInstance, _: any, done: any) => {
                 userId,
                 summitsOnly
             );
+
+            reply.code(200).send(activities);
+        }
+    );
+
+    // Get activities needing trip report review - owner only
+    fastify.get<{
+        Querystring: {
+            limit?: string;
+        };
+    }>(
+        "/unreviewed",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const userId = request.user?.id;
+            const limit = request.query.limit
+                ? parseInt(request.query.limit)
+                : 10;
+
+            if (!userId) {
+                reply.code(401).send({ message: "Unauthorized" });
+                return;
+            }
+
+            const activities = await getUnreviewedActivities(userId, limit);
 
             reply.code(200).send(activities);
         }
@@ -244,6 +273,97 @@ const activities = (fastify: FastifyInstance, _: any, done: any) => {
                     .code(500)
                     .send({ message: "Failed to reprocess activity" });
             }
+        }
+    );
+
+    // Update activity trip report - owner only
+    fastify.put<{
+        Params: {
+            activityId: string;
+        };
+        Body: {
+            tripReport?: string;
+            tripReportIsPublic?: boolean;
+            displayTitle?: string;
+            conditionTags?: string[];
+        };
+    }>(
+        "/:activityId/report",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const { activityId } = request.params;
+            const { tripReport, tripReportIsPublic, displayTitle, conditionTags } = request.body;
+
+            const ownerId = await getActivityOwnerId(activityId);
+
+            if (!ownerId || !ensureOwner(request, reply, ownerId)) {
+                if (ownerId === null) {
+                    reply.code(404).send({ message: "Activity not found" });
+                }
+                return;
+            }
+
+            const activity = await updateActivityReport(activityId, {
+                tripReport,
+                tripReportIsPublic,
+                displayTitle,
+                conditionTags,
+            });
+
+            if (!activity) {
+                reply.code(404).send({ message: "Activity not found" });
+                return;
+            }
+
+            reply.code(200).send(activity);
+        }
+    );
+
+    // Dismiss activity review - owner only
+    fastify.post<{
+        Params: {
+            activityId: string;
+        };
+    }>(
+        "/:activityId/dismiss",
+        { onRequest: [fastify.authenticate] },
+        async function (request, reply) {
+            const { activityId } = request.params;
+
+            const ownerId = await getActivityOwnerId(activityId);
+
+            if (!ownerId || !ensureOwner(request, reply, ownerId)) {
+                if (ownerId === null) {
+                    reply.code(404).send({ message: "Activity not found" });
+                }
+                return;
+            }
+
+            const result = await dismissActivityReview(activityId);
+
+            reply.code(200).send(result);
+        }
+    );
+
+    // Get public activity data - unauthenticated
+    // Returns only PathQuest-owned data (no Strava data)
+    fastify.get<{
+        Params: {
+            activityId: string;
+        };
+    }>(
+        "/:activityId/public",
+        async function (request, reply) {
+            const { activityId } = request.params;
+
+            const publicActivity = await getPublicActivity(activityId);
+
+            if (!publicActivity) {
+                reply.code(404).send({ message: "Activity not found or has no public data" });
+                return;
+            }
+
+            reply.code(200).send(publicActivity);
         }
     );
 

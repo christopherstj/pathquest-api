@@ -106,6 +106,8 @@ Access rules:
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
+- Conditions (public): `GET /:id/conditions` (full conditions with 2hr staleness check + on-demand refresh), `GET /:id/summit-window` (7-day climbability scores with 2hr staleness check)
+- Weather (public): `GET /:id/weather` (current weather), `GET /:id/forecast` (7-day forecast)
 
 #### Summit Confirmation Flow
 Automatically detected summits may have low confidence scores and need user review:
@@ -307,6 +309,12 @@ Automatically detected summits may have low confidence scores and need user revi
   
   Respects user privacy settings - returns 404 for private users if not owner.
 
+### Conditions Helpers (`helpers/conditions/`)
+- `getPeakConditions` - Reads full `peak_conditions` row for a peak from the database
+- `getSummitWindow` - Reads just the `summit_window` JSONB column from `peak_conditions`
+- `triggerOnDemandWeatherFetch` - Self-contained Open-Meteo fetch + resolve + upsert for a single peak. Fetches 7-day forecast (168 hourly hours) + 7-day historical data, computes summit window scores, and stores in `peak_conditions`. Does not call the conditions-ingester worker (avoids IAM issues with Cloud Run).
+- `recordPeakView` - Fire-and-forget upsert to `peak_fetch_priority`. Tracks peak views for smart tiered fetching with 7-day rolling window decay (resets count when last view was >7 days ago).
+
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)
 - `checkRateLimit` - **UNUSED** - Not imported in routes
@@ -338,6 +346,9 @@ Key tables:
 - `strava_tokens` - Stores Strava OAuth tokens
 - `summit_photos` - Photo metadata for summit reports (GCS-backed; supports activity + manual summits)
 - `user_push_tokens` - Expo push tokens for mobile devices (user_id, token, platform, timestamps)
+- `conditions_data` - Raw ingested conditions data (source-level cache, JSONB)
+- `peak_conditions` - Per-peak resolved conditions for UI (weather_forecast, recent_weather, summit_window as JSONB, plus future data source columns)
+- `peak_fetch_priority` - Smart fetching tier tracking (tier, last_viewed_at, view_count_7d with 7-day rolling decay)
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication

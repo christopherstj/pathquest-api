@@ -17,6 +17,7 @@ interface GearItem {
 interface GearRecommendations {
     items: GearItem[];
     summary: string | null;
+    conditionsSummary: string | null;
     updatedAt: string | null;
 }
 
@@ -186,6 +187,7 @@ export function resolveGearRecommendations(
     return {
         items,
         summary,
+        conditionsSummary: null,
         updatedAt: new Date().toISOString(),
     };
 }

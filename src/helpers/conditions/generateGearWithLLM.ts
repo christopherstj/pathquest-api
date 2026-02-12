@@ -12,10 +12,13 @@ interface ConditionsInput {
     trailConditions?: any;
 }
 
-const SYSTEM_PROMPT = `You are a mountain safety gear advisor for PathQuest, a peak-bagging app. Given current conditions near a mountain peak, recommend gear items a hiker/climber should bring.
+const SYSTEM_PROMPT = `You are a mountain conditions analyst and gear advisor for PathQuest, a peak-bagging app. Your primary responsibility is user safety. Given current conditions near a mountain peak, provide a conditions briefing and gear recommendations.
+
+SAFETY FIRST: If conditions are genuinely dangerous (extreme winds, high avalanche danger, severe cold, active wildfires nearby, etc.), say so clearly and directly. Do not sugarcoat hazards or frame dangerous conditions as an exciting challenge. When conditions warrant it, explicitly recommend postponing the trip or state that the peak should only be attempted by experienced mountaineers with appropriate training. It is always better to be too cautious than not cautious enough.
 
 Return a JSON object matching this exact schema:
 {
+  "conditionsSummary": "2-4 sentence plain-language briefing. Lead with hazards if present. Cover what to expect on the mountain, how conditions are trending, and whether now is a good time to go. Be direct about danger — say 'consider postponing' or 'only for experienced winter mountaineers' when warranted. Reference specific numbers naturally. Write in second person.",
   "items": [
     {
       "name": "Gear Item Name",
@@ -24,17 +27,25 @@ Return a JSON object matching this exact schema:
       "priority": "required" | "recommended" | "optional"
     }
   ],
-  "summary": "1-2 sentence natural language summary of key gear considerations"
+  "summary": "1 sentence gear-focused summary (e.g. 'Pack for deep snow and extreme cold with avalanche safety gear required.')"
 }
 
+Safety thresholds — recommend postponing or expert-only when ANY of these apply:
+- Avalanche danger >= 4 (High/Extreme): "Do not attempt without avalanche safety training and gear"
+- Avalanche danger 3 (Considerable) on the planned route aspect: warn clearly
+- Wind gusts > 100 km/h: "Conditions are not safe for travel above treeline"
+- Feels-like temp below -30°C: "Extreme frostbite risk — consider postponing"
+- AQI > 200: "Unhealthy air — avoid prolonged outdoor exertion"
+- Active wildfire within 10 km: "Active fire in the area — check closures before going"
+
 Priority guidelines:
-- "required": Safety-critical gear where not having it could be life-threatening (avalanche safety gear in considerable+ danger, etc.)
+- "required": Safety-critical gear where not having it could be life-threatening
 - "recommended": Important for comfort/safety given current conditions
 - "optional": Nice to have, helpful but not critical
 
 Categories: avalanche_safety, snow_travel, traction, weather_protection, sun_protection, water_crossing, respiratory, navigation, general
 
-Keep recommendations practical and specific to the conditions provided. Reference actual numbers (snow depth, wind speed, AQI, etc.) in reasons. Typically 3-8 items. Only recommend what conditions warrant — don't pad the list.
+Keep recommendations practical and specific. Reference actual numbers in reasons. Typically 3-8 items. Only recommend what conditions warrant — don't pad the list.
 
 Return ONLY the JSON object, no markdown fences or explanation.`;
 
@@ -44,7 +55,6 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
     if (input.weatherForecast) {
         const wf = input.weatherForecast;
         const current = wf.current;
-        const today = wf.daily?.[0];
 
         payload.weather = {
             current: current
@@ -58,16 +68,17 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
                       weatherCode: current.weatherCode,
                   }
                 : null,
-            today: today
-                ? {
-                      tempHighC: today.tempHigh,
-                      tempLowC: today.tempLow,
-                      precipSumMm: today.precipSum,
-                      snowfallSumCm: today.snowfallSum,
-                      windGustsKmh: today.windGusts,
-                      uvIndexMax: today.uvIndexMax,
-                  }
-                : null,
+            forecast: (wf.daily ?? []).slice(0, 7).map((d: any) => ({
+                date: d.date,
+                tempHighC: d.tempHigh,
+                tempLowC: d.tempLow,
+                precipSumMm: d.precipSum,
+                snowfallSumCm: d.snowfallSum,
+                windGustsKmh: d.windGusts,
+                precipProbability: d.precipProbability,
+                uvIndexMax: d.uvIndexMax,
+                weatherCode: d.weatherCode,
+            })),
         };
     }
 
@@ -146,9 +157,16 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
     return payload;
 }
 
+export interface GearLLMResult {
+    items: any[];
+    summary: string | null;
+    conditionsSummary: string | null;
+    updatedAt: string | null;
+}
+
 export async function generateGearWithLLM(
     input: ConditionsInput
-): Promise<{ items: any[]; summary: string | null; updatedAt: string | null }> {
+): Promise<GearLLMResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
 
     if (!apiKey) {
@@ -168,7 +186,7 @@ export async function generateGearWithLLM(
 
         const message = await client.messages.create({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 1024,
+            max_tokens: 1536,
             system: SYSTEM_PROMPT,
             messages: [
                 {
@@ -200,6 +218,7 @@ export async function generateGearWithLLM(
                     : "recommended",
             })),
             summary: parsed.summary ?? null,
+            conditionsSummary: parsed.conditionsSummary ?? null,
             updatedAt: new Date().toISOString(),
         };
     } catch (error) {

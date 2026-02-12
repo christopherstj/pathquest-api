@@ -14,6 +14,8 @@ import photos from "./routes/photos";
 import pushTokens from "./routes/push-tokens";
 import utils from "./routes/utils";
 import search from "./routes/search";
+import trails from "./routes/trails";
+import map from "./routes/map";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -35,6 +37,8 @@ fastify.register(photos, { prefix: "/api/photos" });
 fastify.register(pushTokens, { prefix: "/api/push-tokens" });
 fastify.register(utils, { prefix: "/api/utils" });
 fastify.register(search, { prefix: "/api/search" });
+fastify.register(trails, { prefix: "/api/trails" });
+fastify.register(map, { prefix: "/api/map" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

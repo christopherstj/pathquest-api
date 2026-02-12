@@ -40,6 +40,8 @@ import getPeakConditionsHelper from "../helpers/conditions/getPeakConditions";
 import getSummitWindow from "../helpers/conditions/getSummitWindow";
 import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWeatherFetch";
 import recordPeakView from "../helpers/conditions/recordPeakView";
+import resolveSourceConditions from "../helpers/conditions/resolveSourceConditions";
+import { resolveGearRecommendations } from "../helpers/conditions/resolveGearRecommendations";
 // sendSummitNotification is used by activity sync, not manual summit routes
 // import sendSummitNotification from "../helpers/notifications/sendSummitNotification";
 
@@ -344,6 +346,9 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             conditions = await getPeakConditionsHelper(peakId);
         }
 
+        // Resolve source-level conditions (avalanche, snotel, alerts, streamflow, aqi, fires)
+        const sourceConditions = await resolveSourceConditions(peakId);
+
         // If still no conditions, fall back to live Open-Meteo fetch
         if (!conditions?.weather_forecast) {
             const peak = await getPeakById(peakId, "");
@@ -374,37 +379,58 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 uvIndexMax: null,
             }));
 
+            const fallbackWeather = {
+                current: weather,
+                daily,
+                timezone: null,
+            };
+
+            const gear = resolveGearRecommendations({
+                weatherForecast: fallbackWeather,
+                recentWeather: null,
+                snotelData: sourceConditions.snotel,
+                avalancheForecast: sourceConditions.avalanche,
+                streamFlow: sourceConditions.streamFlow,
+                airQuality: sourceConditions.airQuality,
+            });
+
             reply.code(200).send({
                 peakId,
-                weather: {
-                    current: weather,
-                    daily,
-                    timezone: null,
-                },
+                weather: fallbackWeather,
                 recentWeather: null,
                 summitWindow: null,
                 weatherUpdatedAt: new Date().toISOString(),
-                avalanche: null,
+                avalanche: sourceConditions.avalanche,
                 avalancheUpdatedAt: null,
-                snotel: null,
+                snotel: sourceConditions.snotel,
                 snotelUpdatedAt: null,
-                nwsAlerts: null,
+                nwsAlerts: sourceConditions.nwsAlerts,
                 nwsAlertsUpdatedAt: null,
-                streamFlow: null,
+                streamFlow: sourceConditions.streamFlow,
                 streamFlowUpdatedAt: null,
                 trailConditions: null,
                 trailConditionsUpdatedAt: null,
-                airQuality: null,
+                airQuality: sourceConditions.airQuality,
                 airQualityUpdatedAt: null,
-                fireProximity: null,
+                fireProximity: sourceConditions.fireProximity,
                 fireProximityUpdatedAt: null,
                 roadAccess: null,
                 roadAccessUpdatedAt: null,
-                gearRecommendations: null,
-                gearUpdatedAt: null,
+                gearRecommendations: gear,
+                gearUpdatedAt: gear.updatedAt,
             });
             return;
         }
+
+        // Compute gear recommendations from weather + source data
+        const gear = resolveGearRecommendations({
+            weatherForecast: conditions.weather_forecast,
+            recentWeather: conditions.recent_weather,
+            snotelData: sourceConditions.snotel,
+            avalancheForecast: sourceConditions.avalanche,
+            streamFlow: sourceConditions.streamFlow,
+            airQuality: sourceConditions.airQuality,
+        });
 
         reply.code(200).send({
             peakId: conditions.peak_id,
@@ -412,24 +438,24 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             recentWeather: conditions.recent_weather,
             summitWindow: conditions.summit_window,
             weatherUpdatedAt: conditions.weather_updated_at?.toISOString() ?? null,
-            avalanche: conditions.avalanche_forecast,
-            avalancheUpdatedAt: conditions.avalanche_updated_at?.toISOString() ?? null,
-            snotel: conditions.snotel_data,
-            snotelUpdatedAt: conditions.snotel_updated_at?.toISOString() ?? null,
-            nwsAlerts: conditions.nws_alerts,
-            nwsAlertsUpdatedAt: conditions.nws_alerts_updated_at?.toISOString() ?? null,
-            streamFlow: conditions.stream_flow,
-            streamFlowUpdatedAt: conditions.stream_flow_updated_at?.toISOString() ?? null,
+            avalanche: sourceConditions.avalanche,
+            avalancheUpdatedAt: null,
+            snotel: sourceConditions.snotel,
+            snotelUpdatedAt: null,
+            nwsAlerts: sourceConditions.nwsAlerts,
+            nwsAlertsUpdatedAt: null,
+            streamFlow: sourceConditions.streamFlow,
+            streamFlowUpdatedAt: null,
             trailConditions: conditions.trail_conditions,
             trailConditionsUpdatedAt: conditions.trail_conditions_updated_at?.toISOString() ?? null,
-            airQuality: conditions.air_quality,
-            airQualityUpdatedAt: conditions.air_quality_updated_at?.toISOString() ?? null,
-            fireProximity: conditions.fire_proximity,
-            fireProximityUpdatedAt: conditions.fire_proximity_updated_at?.toISOString() ?? null,
+            airQuality: sourceConditions.airQuality,
+            airQualityUpdatedAt: null,
+            fireProximity: sourceConditions.fireProximity,
+            fireProximityUpdatedAt: null,
             roadAccess: conditions.road_access,
             roadAccessUpdatedAt: conditions.road_access_updated_at?.toISOString() ?? null,
-            gearRecommendations: conditions.gear_recommendations,
-            gearUpdatedAt: conditions.gear_updated_at?.toISOString() ?? null,
+            gearRecommendations: gear,
+            gearUpdatedAt: gear.updatedAt,
         });
     });
 

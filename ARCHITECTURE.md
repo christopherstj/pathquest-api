@@ -106,7 +106,7 @@ Access rules:
 - User data (auth): `GET /summits/:userId` (owner), `GET /summits/unclimbed/nearest`, `GET /summits/unclimbed`, `GET /summits/recent`, `GET /summits/favorites`, `GET /summits/unconfirmed` (optional `limit` query param)
 - Mutations (auth): `POST /summits/manual` (owner), `PUT /favorite`, `GET /favorite`, `POST /summits/:id/confirm`, `POST /summits/:id/deny`, `POST /summits/confirm-all`
 - Ascent CRUD (auth + owner): `GET/PUT/DELETE /ascent/:ascentId` (ascent updates support `condition_tags` array and `custom_condition_tags` JSONB array)
-- Conditions (public): `GET /:id/conditions` (full conditions with 2hr staleness check + on-demand refresh), `GET /:id/summit-window` (7-day climbability scores with 2hr staleness check)
+- Conditions (public): `GET /:id/conditions` (full conditions: weather from peak_conditions + 6 source types resolved at query time via `resolveSourceConditions` + gear recommendations computed at response time), `GET /:id/summit-window` (7-day climbability scores with 2hr staleness check)
 - Weather (public): `GET /:id/weather` (current weather), `GET /:id/forecast` (7-day forecast)
 
 #### Summit Confirmation Flow
@@ -155,6 +155,17 @@ Automatically detected summits may have low confidence scores and need user revi
 - `DELETE /:token` — Unregister a push token (auth)
 - `GET /preferences` — Get user's notification preferences (auth)
 - `PUT /preferences` — Update notification preferences (auth, body: `{ summit_logging_notifications? }`)
+
+### Map Layers (`/api/map`)
+Public geographic data endpoints returning GeoJSON FeatureCollections within a bounding box. No auth required.
+- `GET /fires?bbox=minLon,minLat,maxLon,maxLat` — Active fire perimeters within bbox. Returns GeoJSON FeatureCollection with properties: `incident_id`, `name`, `acres`, `percent_contained`, `state`. Uses `ST_Intersects` with `ST_MakeEnvelope` on `active_fires.perimeter` geometry.
+- `GET /avalanche?bbox=minLon,minLat,maxLon,maxLat` — Avalanche zones with current forecast data within bbox. Returns GeoJSON FeatureCollection with properties: `center_id`, `zone_id`, `name`, `danger`, `summary`, `published_at`, `expires_at`. LEFT JOINs `avalanche_zones` geometry with `avalanche_forecasts`.
+
+### Trails (`/api/trails`)
+Public geographic data endpoints returning GeoJSON FeatureCollections within a bounding box. No auth required.
+- `GET /` — Trails (LineString) within bbox. Query params: `nwLat`, `nwLng`, `seLat`, `seLng`. Returns trail properties: `id`, `osmId`, `name`, `trailType`, `surface`, `difficulty`. Limit 2000.
+- `GET /trailheads` — Trailheads (Point) within bbox. Same query params. Returns: `id`, `osmId`, `name`. Limit 500.
+- `GET /access-roads` — Access roads (LineString) within bbox. Same query params. Returns: `id`, `osmId`, `name`, `roadType`, `surface`, `seasonal`. Limit 1000.
 
 ### Billing (`/api/billing`) — auth + owner
 - `POST /create-subscription`
@@ -314,6 +325,19 @@ Automatically detected summits may have low confidence scores and need user revi
 - `getSummitWindow` - Reads just the `summit_window` JSONB column from `peak_conditions`
 - `triggerOnDemandWeatherFetch` - Self-contained Open-Meteo fetch + resolve + upsert for a single peak. Fetches 7-day forecast (168 hourly hours) + 7-day historical data, computes summit window scores, and stores in `peak_conditions`. Does not call the conditions-ingester worker (avoids IAM issues with Cloud Run).
 - `recordPeakView` - Fire-and-forget upsert to `peak_fetch_priority`. Tracks peak views for smart tiered fetching with 7-day rolling window decay (resets count when last view was >7 days ago).
+- `resolveSourceConditions` - Resolves 6 nationwide source-level condition types for a peak at query time. Runs 6 **parallel** queries via `Promise.all`:
+  - **Avalanche**: via `peak_data_sources` JOIN `avalanche_forecasts` (closest zone by distance)
+  - **SNOTEL**: via `peak_data_sources` JOIN `snotel_observations` + `snotel_stations` (top 3 nearest stations)
+  - **NWS Alerts**: via zone overlap using `affected_zones && array_agg(source_id)` on `nws_active_alerts`
+  - **Streamflow**: via `peak_data_sources` JOIN `streamflow_observations` + `usgs_gauges` (top 3 nearest)
+  - **Air Quality**: nearest monitoring site via `ST_DWithin(ao.location, p.location_coords, 80000)` on `aqi_observations`
+  - **Fire Proximity**: spatial query via `ST_DWithin(af.centroid, p.location_coords, 100000)` on `active_fires` with bearing computation
+- `resolveGearRecommendations` - Computes gear recommendations at API response time based on resolved weather + source conditions. 8 rules: snowshoes, microspikes, avalanche gear, helmet/goggles, rain jacket, sunscreen, trekking poles, N95 mask. Previously pre-computed by conditions-ingester.
+
+### Trails Helpers (`helpers/trails/`)
+- `searchTrails` - Returns GeoJSON FeatureCollection of trails within bbox. Queries `trails` table using `ST_MakeEnvelope` with PostGIS geography intersection.
+- `searchTrailheads` - Returns GeoJSON FeatureCollection of trailheads within bbox. Queries `trailheads` table, extracts lat/lng from PostGIS `location` geography column.
+- `searchAccessRoads` - Returns GeoJSON FeatureCollection of access roads within bbox. Queries `access_roads` table using `ST_MakeEnvelope` with PostGIS geography intersection.
 
 ### Core Helpers
 - `addEventToQueue` - **UNUSED** - Not imported in API routes (used in backend workers)
@@ -347,8 +371,21 @@ Key tables:
 - `summit_photos` - Photo metadata for summit reports (GCS-backed; supports activity + manual summits)
 - `user_push_tokens` - Expo push tokens for mobile devices (user_id, token, platform, timestamps)
 - `conditions_data` - Raw ingested conditions data (source-level cache, JSONB)
-- `peak_conditions` - Per-peak resolved conditions for UI (weather_forecast, recent_weather, summit_window as JSONB, plus future data source columns)
+- `peak_conditions` - Per-peak resolved conditions for UI (weather_forecast, recent_weather, summit_window as JSONB). Weather is still per-peak; other condition types are now resolved at query time from source-level tables.
 - `peak_fetch_priority` - Smart fetching tier tracking (tier, last_viewed_at, view_count_7d with 7-day rolling decay)
+- `avalanche_forecasts` - Per-zone avalanche forecasts (PK: center_id + zone_id). Populated nationwide by avalanche-ingester.
+- `snotel_observations` - Per-station SNOTEL snow/weather data (PK: station_id). Includes current_data JSON, history_7d JSON, snow_trend.
+- `nws_active_alerts` - Active NWS weather alerts (PK: alert_id). Full replace each cycle. `affected_zones TEXT[]` with GIN index for zone overlap queries.
+- `streamflow_observations` - Per-gauge USGS streamflow readings (PK: site_id). Includes discharge_cfs, gage_height_ft.
+- `aqi_observations` - Per-monitoring-site AQI data (PK: site_id). Includes PostGIS Point `location` with GIST index for nearest-site queries. Sourced from AirNow bulk files.
+- `active_fires` - Active wildfire incidents (PK: incident_id). Includes `centroid` (geography Point) and `perimeter` (geometry MultiPolygon) with GIST indexes. Full replace each cycle.
+- `snotel_history` - Daily SNOTEL snapshots (PK: station_id + date). 1-year retention.
+- `streamflow_history` - Daily streamflow snapshots (PK: site_id + date). 1-year retention.
+- `aqi_history` - Daily AQI snapshots (PK: site_id + date). 1-year retention. Keeps max daily AQI.
+- `trails` - Trail geometry data (LineString geography) sourced from OSM. Fields: `id`, `osm_id`, `name`, `geometry`, `trail_type`, `surface`, `difficulty`, `properties`
+- `trailheads` - Trailhead locations (Point geography) sourced from OSM. Fields: `id`, `osm_id`, `name`, `location`, `properties`
+- `access_roads` - Access road geometry (LineString geography) sourced from OSM. Fields: `id`, `osm_id`, `name`, `geometry`, `road_type`, `surface`, `seasonal`, `properties`
+- `peak_trailheads` - Junction table mapping peaks to nearest trailheads. Fields: `peak_id`, `trailhead_id`, `distance_m`
 
 ## External Integrations
 - **Strava API**: Activity data, OAuth authentication
@@ -357,6 +394,7 @@ Key tables:
 - **Google Cloud Pub/Sub**: Message queue for activity processing
 - **Google Cloud Storage**: Private photo storage (signed URLs; thumbnails generated server-side)
 - **Expo Push Notifications**: Mobile push notifications via Expo's push service
+- **Open-Meteo**: On-demand weather fetches for peak conditions (no API key)
 
 ## Photo Storage Setup (GCS)
 

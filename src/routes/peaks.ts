@@ -41,7 +41,9 @@ import getSummitWindow from "../helpers/conditions/getSummitWindow";
 import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWeatherFetch";
 import recordPeakView from "../helpers/conditions/recordPeakView";
 import resolveSourceConditions from "../helpers/conditions/resolveSourceConditions";
-import { resolveGearRecommendations } from "../helpers/conditions/resolveGearRecommendations";
+import { generateGearWithLLM } from "../helpers/conditions/generateGearWithLLM";
+import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
+import getPeakConditionsHistory from "../helpers/conditions/getPeakConditionsHistory";
 // sendSummitNotification is used by activity sync, not manual summit routes
 // import sendSummitNotification from "../helpers/notifications/sendSummitNotification";
 
@@ -385,14 +387,26 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 timezone: null,
             };
 
-            const gear = resolveGearRecommendations({
+            const gear = await generateGearWithLLM({
                 weatherForecast: fallbackWeather,
                 recentWeather: null,
                 snotelData: sourceConditions.snotel,
                 avalancheForecast: sourceConditions.avalanche,
                 streamFlow: sourceConditions.streamFlow,
                 airQuality: sourceConditions.airQuality,
+                fireProximity: sourceConditions.fireProximity,
+                trailConditions: null,
             });
+
+            // Fire-and-forget: cache LLM gear result back to DB
+            getCloudSqlConnection().then((pool) =>
+                pool.query(
+                    `UPDATE peak_conditions
+                     SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                     WHERE peak_id = $1`,
+                    [peakId, JSON.stringify(gear)]
+                ).catch(() => {})
+            ).catch(() => {});
 
             reply.code(200).send({
                 peakId,
@@ -422,15 +436,27 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             return;
         }
 
-        // Compute gear recommendations from weather + source data
-        const gear = resolveGearRecommendations({
+        // Compute gear recommendations via LLM (falls back to rules-based)
+        const gear = await generateGearWithLLM({
             weatherForecast: conditions.weather_forecast,
             recentWeather: conditions.recent_weather,
             snotelData: sourceConditions.snotel,
             avalancheForecast: sourceConditions.avalanche,
             streamFlow: sourceConditions.streamFlow,
             airQuality: sourceConditions.airQuality,
+            fireProximity: sourceConditions.fireProximity,
+            trailConditions: conditions.trail_conditions,
         });
+
+        // Fire-and-forget: cache LLM gear result back to DB
+        getCloudSqlConnection().then((pool) =>
+            pool.query(
+                `UPDATE peak_conditions
+                 SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                 WHERE peak_id = $1`,
+                [conditions.peak_id, JSON.stringify(gear)]
+            ).catch(() => {})
+        ).catch(() => {});
 
         reply.code(200).send({
             peakId: conditions.peak_id,
@@ -488,6 +514,35 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
 
         reply.code(200).send(conditions.summit_window);
+    });
+
+    // GET /api/peaks/:id/conditions/history?range=30d|90d|1y&sources=snotel,streamflow,aqi
+    fastify.get<{
+        Params: { id: string };
+        Querystring: { range?: string; sources?: string };
+    }>("/:id/conditions/history", async function (request, reply) {
+        const peakId = request.params.id;
+        const range = request.query.range ?? "30d";
+        const validRanges = ["30d", "90d", "1y"];
+        if (!validRanges.includes(range)) {
+            reply.code(400).send({ message: "Invalid range. Use 30d, 90d, or 1y" });
+            return;
+        }
+
+        const sourcesParam = request.query.sources ?? "snotel,streamflow,aqi";
+        const validSources = ["snotel", "streamflow", "aqi"];
+        const sources = sourcesParam.split(",").filter((s) => validSources.includes(s));
+        if (sources.length === 0) {
+            reply.code(400).send({ message: "Invalid sources. Use snotel, streamflow, aqi" });
+            return;
+        }
+
+        const history = await getPeakConditionsHistory(
+            peakId,
+            range as "30d" | "90d" | "1y",
+            sources
+        );
+        reply.code(200).send(history);
     });
 
     // Flag a peak for coordinate review

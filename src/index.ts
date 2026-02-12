@@ -16,6 +16,7 @@ import utils from "./routes/utils";
 import search from "./routes/search";
 import trails from "./routes/trails";
 import map from "./routes/map";
+import conditions from "./routes/conditions";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -39,6 +40,7 @@ fastify.register(utils, { prefix: "/api/utils" });
 fastify.register(search, { prefix: "/api/search" });
 fastify.register(trails, { prefix: "/api/trails" });
 fastify.register(map, { prefix: "/api/map" });
+fastify.register(conditions, { prefix: "/api/conditions" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

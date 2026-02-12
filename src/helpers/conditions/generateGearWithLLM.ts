@@ -91,7 +91,7 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
                 snowDepthIn: nearest.current.snowDepthIn,
                 sweIn: nearest.current.sweIn,
                 stationName: nearest.name,
-                stationElevationFt: nearest.elevationFt,
+                stationElevationM: nearest.elevationM,
             };
         }
     }
@@ -111,7 +111,7 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
     if (input.streamFlow) {
         payload.streamFlow = {
             crossingAlert: input.streamFlow.crossingAlert,
-            nearestGaugeCfs: input.streamFlow.gauges?.[0]?.current?.flowCfs,
+            nearestGaugeCfs: input.streamFlow.gauges?.[0]?.current?.dischargeCfs,
         };
     }
 
@@ -122,14 +122,14 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
         };
     }
 
-    if (input.fireProximity?.fires?.length > 0) {
-        payload.fires = input.fireProximity.fires
+    if (input.fireProximity?.nearbyFires?.length > 0) {
+        payload.fires = input.fireProximity.nearbyFires
             .slice(0, 3)
             .map((f: any) => ({
                 name: f.name,
-                distanceMi: f.distanceMi,
+                distanceKm: f.distanceKm,
                 acres: f.acres,
-                containment: f.containmentPercent,
+                containment: f.percentContained,
             }));
     }
 

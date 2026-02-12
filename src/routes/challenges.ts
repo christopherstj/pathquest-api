@@ -14,6 +14,8 @@ import getChallengeProgress from "../helpers/challenges/getChallengeProgress";
 import getNextPeakSuggestion from "../helpers/challenges/getNextPeakSuggestion";
 import getChallengeActivity from "../helpers/challenges/getChallengeActivity";
 import getPopularChallenges from "../helpers/challenges/getPopularChallenges";
+import aggregateAreaConditions from "../helpers/conditions/aggregateAreaConditions";
+import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
 import { ensureOwner } from "../helpers/authz";
 
 const challenges = (fastify: FastifyInstance, _: any, done: any) => {
@@ -285,6 +287,31 @@ const challenges = (fastify: FastifyInstance, _: any, done: any) => {
             await deleteChallengeFavorite(userId, challengeId);
 
             reply.code(200).send();
+        }
+    );
+
+    // GET /api/challenges/:challengeId/conditions
+    fastify.get<{
+        Params: { challengeId: string };
+    }>(
+        "/:challengeId/conditions",
+        async function (request, reply) {
+            const challengeId = parseInt(request.params.challengeId);
+            if (isNaN(challengeId)) {
+                reply.code(400).send({ message: "Invalid challenge ID" });
+                return;
+            }
+
+            const db = await getCloudSqlConnection();
+            const peaksResult = await db.query(
+                `SELECT peak_id FROM peaks_challenges WHERE challenge_id = $1`,
+                [challengeId]
+            );
+
+            const peakIds = peaksResult.rows.map((r: any) => r.peak_id);
+            const summary = await aggregateAreaConditions(peakIds);
+
+            reply.code(200).send({ challengeId, ...summary });
         }
     );
 

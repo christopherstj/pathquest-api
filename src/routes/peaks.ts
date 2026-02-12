@@ -40,6 +40,10 @@ import getPeakConditionsHelper from "../helpers/conditions/getPeakConditions";
 import getSummitWindow from "../helpers/conditions/getSummitWindow";
 import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWeatherFetch";
 import recordPeakView from "../helpers/conditions/recordPeakView";
+import resolveSourceConditions from "../helpers/conditions/resolveSourceConditions";
+import { generateGearWithLLM } from "../helpers/conditions/generateGearWithLLM";
+import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
+import getPeakConditionsHistory from "../helpers/conditions/getPeakConditionsHistory";
 // sendSummitNotification is used by activity sync, not manual summit routes
 // import sendSummitNotification from "../helpers/notifications/sendSummitNotification";
 
@@ -344,6 +348,13 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             conditions = await getPeakConditionsHelper(peakId);
         }
 
+        // Resolve source-level conditions (avalanche, snotel, alerts, streamflow, aqi, fires)
+        const sourceConditions = await resolveSourceConditions(peakId);
+
+        // Check if cached gear is still fresh (reuse same 2h threshold)
+        const gearFresh = conditions?.gear_updated_at &&
+            Date.now() - new Date(conditions.gear_updated_at).getTime() < STALE_THRESHOLD_MS;
+
         // If still no conditions, fall back to live Open-Meteo fetch
         if (!conditions?.weather_forecast) {
             const peak = await getPeakById(peakId, "");
@@ -374,36 +385,93 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 uvIndexMax: null,
             }));
 
+            const fallbackWeather = {
+                current: weather,
+                daily,
+                timezone: null,
+            };
+
+            let gear: { items: any[]; summary: string | null; updatedAt: string | null };
+
+            if (gearFresh && conditions?.gear_recommendations) {
+                gear = conditions.gear_recommendations;
+            } else {
+                gear = await generateGearWithLLM({
+                    weatherForecast: fallbackWeather,
+                    recentWeather: null,
+                    snotelData: sourceConditions.snotel,
+                    avalancheForecast: sourceConditions.avalanche,
+                    streamFlow: sourceConditions.streamFlow,
+                    airQuality: sourceConditions.airQuality,
+                    fireProximity: sourceConditions.fireProximity,
+                    trailConditions: null,
+                });
+
+                // Fire-and-forget: cache LLM gear result back to DB
+                getCloudSqlConnection().then((pool) =>
+                    pool.query(
+                        `UPDATE peak_conditions
+                         SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                         WHERE peak_id = $1`,
+                        [peakId, JSON.stringify(gear)]
+                    ).catch(() => {})
+                ).catch(() => {});
+            }
+
             reply.code(200).send({
                 peakId,
-                weather: {
-                    current: weather,
-                    daily,
-                    timezone: null,
-                },
+                weather: fallbackWeather,
                 recentWeather: null,
                 summitWindow: null,
                 weatherUpdatedAt: new Date().toISOString(),
-                avalanche: null,
+                avalanche: sourceConditions.avalanche,
                 avalancheUpdatedAt: null,
-                snotel: null,
+                snotel: sourceConditions.snotel,
                 snotelUpdatedAt: null,
-                nwsAlerts: null,
+                nwsAlerts: sourceConditions.nwsAlerts,
                 nwsAlertsUpdatedAt: null,
-                streamFlow: null,
+                streamFlow: sourceConditions.streamFlow,
                 streamFlowUpdatedAt: null,
                 trailConditions: null,
                 trailConditionsUpdatedAt: null,
-                airQuality: null,
+                airQuality: sourceConditions.airQuality,
                 airQualityUpdatedAt: null,
-                fireProximity: null,
+                fireProximity: sourceConditions.fireProximity,
                 fireProximityUpdatedAt: null,
                 roadAccess: null,
                 roadAccessUpdatedAt: null,
-                gearRecommendations: null,
-                gearUpdatedAt: null,
+                gearRecommendations: gear,
+                gearUpdatedAt: gear.updatedAt,
             });
             return;
+        }
+
+        // Use cached gear if fresh, otherwise generate via LLM (falls back to rules-based)
+        let gear: { items: any[]; summary: string | null; updatedAt: string | null };
+
+        if (gearFresh && conditions.gear_recommendations) {
+            gear = conditions.gear_recommendations;
+        } else {
+            gear = await generateGearWithLLM({
+                weatherForecast: conditions.weather_forecast,
+                recentWeather: conditions.recent_weather,
+                snotelData: sourceConditions.snotel,
+                avalancheForecast: sourceConditions.avalanche,
+                streamFlow: sourceConditions.streamFlow,
+                airQuality: sourceConditions.airQuality,
+                fireProximity: sourceConditions.fireProximity,
+                trailConditions: conditions.trail_conditions,
+            });
+
+            // Fire-and-forget: cache LLM gear result back to DB
+            getCloudSqlConnection().then((pool) =>
+                pool.query(
+                    `UPDATE peak_conditions
+                     SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                     WHERE peak_id = $1`,
+                    [conditions.peak_id, JSON.stringify(gear)]
+                ).catch(() => {})
+            ).catch(() => {});
         }
 
         reply.code(200).send({
@@ -412,24 +480,24 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             recentWeather: conditions.recent_weather,
             summitWindow: conditions.summit_window,
             weatherUpdatedAt: conditions.weather_updated_at?.toISOString() ?? null,
-            avalanche: conditions.avalanche_forecast,
-            avalancheUpdatedAt: conditions.avalanche_updated_at?.toISOString() ?? null,
-            snotel: conditions.snotel_data,
-            snotelUpdatedAt: conditions.snotel_updated_at?.toISOString() ?? null,
-            nwsAlerts: conditions.nws_alerts,
-            nwsAlertsUpdatedAt: conditions.nws_alerts_updated_at?.toISOString() ?? null,
-            streamFlow: conditions.stream_flow,
-            streamFlowUpdatedAt: conditions.stream_flow_updated_at?.toISOString() ?? null,
+            avalanche: sourceConditions.avalanche,
+            avalancheUpdatedAt: null,
+            snotel: sourceConditions.snotel,
+            snotelUpdatedAt: null,
+            nwsAlerts: sourceConditions.nwsAlerts,
+            nwsAlertsUpdatedAt: null,
+            streamFlow: sourceConditions.streamFlow,
+            streamFlowUpdatedAt: null,
             trailConditions: conditions.trail_conditions,
             trailConditionsUpdatedAt: conditions.trail_conditions_updated_at?.toISOString() ?? null,
-            airQuality: conditions.air_quality,
-            airQualityUpdatedAt: conditions.air_quality_updated_at?.toISOString() ?? null,
-            fireProximity: conditions.fire_proximity,
-            fireProximityUpdatedAt: conditions.fire_proximity_updated_at?.toISOString() ?? null,
+            airQuality: sourceConditions.airQuality,
+            airQualityUpdatedAt: null,
+            fireProximity: sourceConditions.fireProximity,
+            fireProximityUpdatedAt: null,
             roadAccess: conditions.road_access,
             roadAccessUpdatedAt: conditions.road_access_updated_at?.toISOString() ?? null,
-            gearRecommendations: conditions.gear_recommendations,
-            gearUpdatedAt: conditions.gear_updated_at?.toISOString() ?? null,
+            gearRecommendations: gear,
+            gearUpdatedAt: gear.updatedAt,
         });
     });
 
@@ -462,6 +530,35 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
 
         reply.code(200).send(conditions.summit_window);
+    });
+
+    // GET /api/peaks/:id/conditions/history?range=30d|90d|1y&sources=snotel,streamflow,aqi
+    fastify.get<{
+        Params: { id: string };
+        Querystring: { range?: string; sources?: string };
+    }>("/:id/conditions/history", async function (request, reply) {
+        const peakId = request.params.id;
+        const range = request.query.range ?? "30d";
+        const validRanges = ["30d", "90d", "1y"];
+        if (!validRanges.includes(range)) {
+            reply.code(400).send({ message: "Invalid range. Use 30d, 90d, or 1y" });
+            return;
+        }
+
+        const sourcesParam = request.query.sources ?? "snotel,streamflow,aqi";
+        const validSources = ["snotel", "streamflow", "aqi"];
+        const sources = sourcesParam.split(",").filter((s) => validSources.includes(s));
+        if (sources.length === 0) {
+            reply.code(400).send({ message: "Invalid sources. Use snotel, streamflow, aqi" });
+            return;
+        }
+
+        const history = await getPeakConditionsHistory(
+            peakId,
+            range as "30d" | "90d" | "1y",
+            sources
+        );
+        reply.code(200).send(history);
     });
 
     // Flag a peak for coordinate review

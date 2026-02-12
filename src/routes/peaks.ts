@@ -42,6 +42,7 @@ import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWe
 import recordPeakView from "../helpers/conditions/recordPeakView";
 import resolveSourceConditions from "../helpers/conditions/resolveSourceConditions";
 import { generateGearWithLLM, GearLLMResult } from "../helpers/conditions/generateGearWithLLM";
+import { applyHazardModifiers } from "../helpers/conditions/applyHazardModifiers";
 import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
 import getPeakConditionsHistory from "../helpers/conditions/getPeakConditionsHistory";
 // sendSummitNotification is used by activity sync, not manual summit routes
@@ -474,11 +475,17 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             ).catch(() => {});
         }
 
+        // Apply hazard modifiers (avalanche, AQI, fire) to summit window scores
+        const adjustedSummitWindow = applyHazardModifiers(
+            conditions.summit_window,
+            sourceConditions
+        );
+
         reply.code(200).send({
             peakId: conditions.peak_id,
             weather: conditions.weather_forecast,
             recentWeather: conditions.recent_weather,
-            summitWindow: conditions.summit_window,
+            summitWindow: adjustedSummitWindow,
             weatherUpdatedAt: conditions.weather_updated_at?.toISOString() ?? null,
             avalanche: sourceConditions.avalanche,
             avalancheUpdatedAt: null,

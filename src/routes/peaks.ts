@@ -351,6 +351,10 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         // Resolve source-level conditions (avalanche, snotel, alerts, streamflow, aqi, fires)
         const sourceConditions = await resolveSourceConditions(peakId);
 
+        // Check if cached gear is still fresh (reuse same 2h threshold)
+        const gearFresh = conditions?.gear_updated_at &&
+            Date.now() - new Date(conditions.gear_updated_at).getTime() < STALE_THRESHOLD_MS;
+
         // If still no conditions, fall back to live Open-Meteo fetch
         if (!conditions?.weather_forecast) {
             const peak = await getPeakById(peakId, "");
@@ -387,26 +391,32 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 timezone: null,
             };
 
-            const gear = await generateGearWithLLM({
-                weatherForecast: fallbackWeather,
-                recentWeather: null,
-                snotelData: sourceConditions.snotel,
-                avalancheForecast: sourceConditions.avalanche,
-                streamFlow: sourceConditions.streamFlow,
-                airQuality: sourceConditions.airQuality,
-                fireProximity: sourceConditions.fireProximity,
-                trailConditions: null,
-            });
+            let gear: { items: any[]; summary: string | null; updatedAt: string | null };
 
-            // Fire-and-forget: cache LLM gear result back to DB
-            getCloudSqlConnection().then((pool) =>
-                pool.query(
-                    `UPDATE peak_conditions
-                     SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
-                     WHERE peak_id = $1`,
-                    [peakId, JSON.stringify(gear)]
-                ).catch(() => {})
-            ).catch(() => {});
+            if (gearFresh && conditions?.gear_recommendations) {
+                gear = conditions.gear_recommendations;
+            } else {
+                gear = await generateGearWithLLM({
+                    weatherForecast: fallbackWeather,
+                    recentWeather: null,
+                    snotelData: sourceConditions.snotel,
+                    avalancheForecast: sourceConditions.avalanche,
+                    streamFlow: sourceConditions.streamFlow,
+                    airQuality: sourceConditions.airQuality,
+                    fireProximity: sourceConditions.fireProximity,
+                    trailConditions: null,
+                });
+
+                // Fire-and-forget: cache LLM gear result back to DB
+                getCloudSqlConnection().then((pool) =>
+                    pool.query(
+                        `UPDATE peak_conditions
+                         SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                         WHERE peak_id = $1`,
+                        [peakId, JSON.stringify(gear)]
+                    ).catch(() => {})
+                ).catch(() => {});
+            }
 
             reply.code(200).send({
                 peakId,
@@ -436,27 +446,33 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
             return;
         }
 
-        // Compute gear recommendations via LLM (falls back to rules-based)
-        const gear = await generateGearWithLLM({
-            weatherForecast: conditions.weather_forecast,
-            recentWeather: conditions.recent_weather,
-            snotelData: sourceConditions.snotel,
-            avalancheForecast: sourceConditions.avalanche,
-            streamFlow: sourceConditions.streamFlow,
-            airQuality: sourceConditions.airQuality,
-            fireProximity: sourceConditions.fireProximity,
-            trailConditions: conditions.trail_conditions,
-        });
+        // Use cached gear if fresh, otherwise generate via LLM (falls back to rules-based)
+        let gear: { items: any[]; summary: string | null; updatedAt: string | null };
 
-        // Fire-and-forget: cache LLM gear result back to DB
-        getCloudSqlConnection().then((pool) =>
-            pool.query(
-                `UPDATE peak_conditions
-                 SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
-                 WHERE peak_id = $1`,
-                [conditions.peak_id, JSON.stringify(gear)]
-            ).catch(() => {})
-        ).catch(() => {});
+        if (gearFresh && conditions.gear_recommendations) {
+            gear = conditions.gear_recommendations;
+        } else {
+            gear = await generateGearWithLLM({
+                weatherForecast: conditions.weather_forecast,
+                recentWeather: conditions.recent_weather,
+                snotelData: sourceConditions.snotel,
+                avalancheForecast: sourceConditions.avalanche,
+                streamFlow: sourceConditions.streamFlow,
+                airQuality: sourceConditions.airQuality,
+                fireProximity: sourceConditions.fireProximity,
+                trailConditions: conditions.trail_conditions,
+            });
+
+            // Fire-and-forget: cache LLM gear result back to DB
+            getCloudSqlConnection().then((pool) =>
+                pool.query(
+                    `UPDATE peak_conditions
+                     SET gear_recommendations = $2, gear_updated_at = NOW(), updated_at = NOW()
+                     WHERE peak_id = $1`,
+                    [conditions.peak_id, JSON.stringify(gear)]
+                ).catch(() => {})
+            ).catch(() => {});
+        }
 
         reply.code(200).send({
             peakId: conditions.peak_id,

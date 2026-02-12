@@ -41,7 +41,7 @@ import getSummitWindow from "../helpers/conditions/getSummitWindow";
 import triggerOnDemandWeatherFetch from "../helpers/conditions/triggerOnDemandWeatherFetch";
 import recordPeakView from "../helpers/conditions/recordPeakView";
 import resolveSourceConditions from "../helpers/conditions/resolveSourceConditions";
-import { generateGearWithLLM } from "../helpers/conditions/generateGearWithLLM";
+import { generateGearWithLLM, GearLLMResult } from "../helpers/conditions/generateGearWithLLM";
 import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
 import getPeakConditionsHistory from "../helpers/conditions/getPeakConditionsHistory";
 // sendSummitNotification is used by activity sync, not manual summit routes
@@ -391,7 +391,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
                 timezone: null,
             };
 
-            let gear: { items: any[]; summary: string | null; updatedAt: string | null };
+            let gear: GearLLMResult;
 
             if (gearFresh && conditions?.gear_recommendations) {
                 gear = conditions.gear_recommendations;
@@ -447,7 +447,7 @@ const peaks = (fastify: FastifyInstance, _: any, done: any) => {
         }
 
         // Use cached gear if fresh, otherwise generate via LLM (falls back to rules-based)
-        let gear: { items: any[]; summary: string | null; updatedAt: string | null };
+        let gear: GearLLMResult;
 
         if (gearFresh && conditions.gear_recommendations) {
             gear = conditions.gear_recommendations;

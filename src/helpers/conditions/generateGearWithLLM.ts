@@ -12,10 +12,11 @@ interface ConditionsInput {
     trailConditions?: any;
 }
 
-const SYSTEM_PROMPT = `You are a mountain safety gear advisor for PathQuest, a peak-bagging app. Given current conditions near a mountain peak, recommend gear items a hiker/climber should bring.
+const SYSTEM_PROMPT = `You are a mountain conditions analyst and gear advisor for PathQuest, a peak-bagging app. Given current conditions near a mountain peak, provide two things: a conditions briefing and gear recommendations.
 
 Return a JSON object matching this exact schema:
 {
+  "conditionsSummary": "2-4 sentence plain-language briefing interpreting what the data means for someone planning a trip. Cover: what to expect on the mountain right now, how conditions are trending over the next few days, and the best window to go if relevant. Reference specific numbers naturally (e.g. '20 inches of snow on the ground' not 'snowDepthIn: 20'). Write in second person ('you'll encounter...').",
   "items": [
     {
       "name": "Gear Item Name",
@@ -24,7 +25,7 @@ Return a JSON object matching this exact schema:
       "priority": "required" | "recommended" | "optional"
     }
   ],
-  "summary": "1-2 sentence natural language summary of key gear considerations"
+  "summary": "1 sentence gear-focused summary (e.g. 'Pack for deep snow and extreme cold with avalanche safety gear required.')"
 }
 
 Priority guidelines:
@@ -44,7 +45,6 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
     if (input.weatherForecast) {
         const wf = input.weatherForecast;
         const current = wf.current;
-        const today = wf.daily?.[0];
 
         payload.weather = {
             current: current
@@ -58,16 +58,17 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
                       weatherCode: current.weatherCode,
                   }
                 : null,
-            today: today
-                ? {
-                      tempHighC: today.tempHigh,
-                      tempLowC: today.tempLow,
-                      precipSumMm: today.precipSum,
-                      snowfallSumCm: today.snowfallSum,
-                      windGustsKmh: today.windGusts,
-                      uvIndexMax: today.uvIndexMax,
-                  }
-                : null,
+            forecast: (wf.daily ?? []).slice(0, 7).map((d: any) => ({
+                date: d.date,
+                tempHighC: d.tempHigh,
+                tempLowC: d.tempLow,
+                precipSumMm: d.precipSum,
+                snowfallSumCm: d.snowfallSum,
+                windGustsKmh: d.windGusts,
+                precipProbability: d.precipProbability,
+                uvIndexMax: d.uvIndexMax,
+                weatherCode: d.weatherCode,
+            })),
         };
     }
 
@@ -146,9 +147,16 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
     return payload;
 }
 
+export interface GearLLMResult {
+    items: any[];
+    summary: string | null;
+    conditionsSummary: string | null;
+    updatedAt: string | null;
+}
+
 export async function generateGearWithLLM(
     input: ConditionsInput
-): Promise<{ items: any[]; summary: string | null; updatedAt: string | null }> {
+): Promise<GearLLMResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
 
     if (!apiKey) {
@@ -168,7 +176,7 @@ export async function generateGearWithLLM(
 
         const message = await client.messages.create({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 1024,
+            max_tokens: 1536,
             system: SYSTEM_PROMPT,
             messages: [
                 {
@@ -200,6 +208,7 @@ export async function generateGearWithLLM(
                     : "recommended",
             })),
             summary: parsed.summary ?? null,
+            conditionsSummary: parsed.conditionsSummary ?? null,
             updatedAt: new Date().toISOString(),
         };
     } catch (error) {

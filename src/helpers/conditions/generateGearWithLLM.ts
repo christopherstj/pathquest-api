@@ -26,8 +26,7 @@ Return a JSON object matching this exact schema:
       "reason": "Brief reason (1 sentence, reference specific data)",
       "priority": "required" | "recommended" | "optional"
     }
-  ],
-  "summary": "1 sentence gear-focused summary (e.g. 'Pack for deep snow and extreme cold with avalanche safety gear required.')"
+  ]
 }
 
 Safety thresholds — recommend postponing or expert-only when ANY of these apply:
@@ -159,7 +158,6 @@ function buildConditionsPayload(input: ConditionsInput): Record<string, any> {
 
 export interface GearLLMResult {
     items: any[];
-    summary: string | null;
     conditionsSummary: string | null;
     updatedAt: string | null;
 }
@@ -217,7 +215,6 @@ export async function generateGearWithLLM(
                     ? item.priority
                     : "recommended",
             })),
-            summary: parsed.summary ?? null,
             conditionsSummary: parsed.conditionsSummary ?? null,
             updatedAt: new Date().toISOString(),
         };

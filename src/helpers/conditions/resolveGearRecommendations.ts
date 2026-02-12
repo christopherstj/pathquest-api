@@ -16,7 +16,6 @@ interface GearItem {
 
 interface GearRecommendations {
     items: GearItem[];
-    summary: string | null;
     conditionsSummary: string | null;
     updatedAt: string | null;
 }
@@ -168,25 +167,8 @@ export function resolveGearRecommendations(
         });
     }
 
-    // Generate summary
-    let summary: string | null = null;
-    if (items.length > 0) {
-        const requiredCount = items.filter((i) => i.priority === "required").length;
-        const recommendedCount = items.filter((i) => i.priority === "recommended").length;
-
-        const parts: string[] = [];
-        if (requiredCount > 0) {
-            parts.push(`${requiredCount} required item${requiredCount !== 1 ? "s" : ""}`);
-        }
-        if (recommendedCount > 0) {
-            parts.push(`${recommendedCount} recommended item${recommendedCount !== 1 ? "s" : ""}`);
-        }
-        summary = parts.join(", ");
-    }
-
     return {
         items,
-        summary,
         conditionsSummary: null,
         updatedAt: new Date().toISOString(),
     };

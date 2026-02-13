@@ -67,10 +67,13 @@ export default async function (fastify: FastifyInstance) {
         Params: { centerId: string; zoneId: string };
     }>(
         "/avalanche/:centerId/:zoneId",
+        { preHandler: [fastify.optionalAuth] },
         async (request, reply) => {
+            const userId = (request as any).user?.id;
             const detail = await getAvalancheZoneDetail(
                 request.params.centerId,
-                request.params.zoneId
+                request.params.zoneId,
+                userId
             );
             if (!detail) {
                 reply.code(404).send({ message: "Avalanche zone not found" });

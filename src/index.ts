@@ -17,6 +17,8 @@ import search from "./routes/search";
 import trails from "./routes/trails";
 import map from "./routes/map";
 import conditions from "./routes/conditions";
+import snow from "./routes/snow";
+import fires from "./routes/fires";
 import authPlugin from "./plugins/auth";
 
 const fastify = Fastify({
@@ -41,6 +43,8 @@ fastify.register(search, { prefix: "/api/search" });
 fastify.register(trails, { prefix: "/api/trails" });
 fastify.register(map, { prefix: "/api/map" });
 fastify.register(conditions, { prefix: "/api/conditions" });
+fastify.register(snow, { prefix: "/api/snow" });
+fastify.register(fires, { prefix: "/api/fires" });
 
 fastify.listen({ port: 8080, host: "0.0.0.0" }, function (err, address) {
     if (err) {

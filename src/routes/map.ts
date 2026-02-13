@@ -1,6 +1,8 @@
 import { FastifyInstance } from "fastify";
 import getCloudSqlConnection from "../helpers/getCloudSqlConnection";
 import aggregateAreaConditions from "../helpers/conditions/aggregateAreaConditions";
+import getPublicLandDetail from "../helpers/map/getPublicLandDetail";
+import getPublicLandPeaks from "../helpers/map/getPublicLandPeaks";
 
 export default async function (fastify: FastifyInstance) {
     // GET /api/map/fires?bbox=minLon,minLat,maxLon,maxLat
@@ -289,6 +291,37 @@ export default async function (fastify: FastifyInstance) {
             }));
 
             reply.code(200).send({ type: "FeatureCollection", features });
+        }
+    );
+
+    // GET /api/map/public-lands/:objectId
+    fastify.get<{
+        Params: { objectId: string };
+    }>(
+        "/public-lands/:objectId",
+        async (request, reply) => {
+            const detail = await getPublicLandDetail(request.params.objectId);
+            if (!detail) {
+                reply.code(404).send({ message: "Public land not found" });
+                return;
+            }
+            reply.code(200).send(detail);
+        }
+    );
+
+    // GET /api/map/public-lands/:objectId/peaks?page=1&limit=20
+    fastify.get<{
+        Params: { objectId: string };
+        Querystring: { page?: string; limit?: string };
+    }>(
+        "/public-lands/:objectId/peaks",
+        { preHandler: [fastify.optionalAuth] },
+        async (request, reply) => {
+            const page = parseInt(request.query.page || "1", 10);
+            const limit = Math.min(parseInt(request.query.limit || "20", 10), 100);
+            const userId = (request as any).user?.id;
+            const result = await getPublicLandPeaks(request.params.objectId, page, limit, userId);
+            reply.code(200).send(result);
         }
     );
 

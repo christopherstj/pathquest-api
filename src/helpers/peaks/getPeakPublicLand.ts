@@ -40,6 +40,7 @@ const DESIGNATION_NAMES: Record<string, string> = {
 };
 
 export interface PublicLand {
+    objectId: string;
     name: string;
     type: string;
     typeName: string;
@@ -56,7 +57,7 @@ const getPeakPublicLand = async (peakId: string): Promise<PublicLand | null> => 
     const db = await getCloudSqlConnection();
     
     const query = `
-        SELECT pl.unit_nm, pl.des_tp, pl.mang_name
+        SELECT pl.objectid, pl.unit_nm, pl.des_tp, pl.mang_name
         FROM peaks_public_lands ppl
         JOIN public_lands pl ON ppl.public_land_id = pl.objectid
         WHERE ppl.peak_id = $1
@@ -78,6 +79,7 @@ const getPeakPublicLand = async (peakId: string): Promise<PublicLand | null> => 
     const primary = sorted[0];
     
     return {
+        objectId: String(primary.objectid),
         name: primary.unit_nm || 'Unknown',
         type: primary.des_tp || 'Unknown',
         typeName: DESIGNATION_NAMES[primary.des_tp] || primary.des_tp || 'Public Land',

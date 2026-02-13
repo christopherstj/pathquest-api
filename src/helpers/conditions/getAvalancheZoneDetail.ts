@@ -25,22 +25,21 @@ const getAvalancheZoneDetail = async (centerId: string, zoneId: string, userId?:
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
 
-    // Fetch zone geometry + centroid
-    const zoneResult = await db.query(
-        `SELECT ST_AsGeoJSON(geometry) AS geometry,
-                ST_Y(ST_Centroid(geometry::geometry)) AS lat,
-                ST_X(ST_Centroid(geometry::geometry)) AS lng
-         FROM avalanche_zones
-         WHERE center_id = $1 AND zone_id = $2`,
-        [centerId, zoneId]
-    );
-    const zone = zoneResult.rows[0] ?? null;
-
     const sourceId = `${centerId}:${zoneId}`;
     const peakParams: any[] = [sourceId];
     const userIdParam = userId ? `$${peakParams.push(userId)}` : null;
 
-    const peaksResult = await db.query(
+    // Run independent queries in parallel
+    const [zoneResult, peaksResult] = await Promise.all([
+        db.query(
+            `SELECT ST_AsGeoJSON(geometry) AS geometry,
+                    ST_Y(ST_Centroid(geometry::geometry)) AS lat,
+                    ST_X(ST_Centroid(geometry::geometry)) AS lng
+             FROM avalanche_zones
+             WHERE center_id = $1 AND zone_id = $2`,
+            [centerId, zoneId]
+        ),
+        db.query(
         `SELECT p.id, p.name, p.elevation, p.state, pds.distance_m,
                 COALESCE((
                     SELECT COUNT(DISTINCT sub.id) FROM (
@@ -71,9 +70,11 @@ const getAvalancheZoneDetail = async (centerId: string, zoneId: string, userId?:
          JOIN peaks p ON p.id = pds.peak_id
          WHERE pds.source_type = 'avalanche_zone' AND pds.source_id = $1
          ORDER BY pds.distance_m LIMIT 10`,
-        peakParams
-    );
+            peakParams
+        ),
+    ]);
 
+    const zone = zoneResult.rows[0] ?? null;
     const nearbyPeaks: NearbyPeak[] = peaksResult.rows.map((r: any) => ({
         id: r.id,
         name: r.name,

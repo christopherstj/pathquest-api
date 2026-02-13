@@ -16,28 +16,34 @@ const getFireDetail = async (incidentId: string) => {
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
 
-    // Find nearby peaks within 100km of fire centroid
-    const peaksResult = await db.query(
-        `SELECT p.id, p.name,
-                ST_Distance(p.location_coords, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS distance_km
-         FROM peaks p
-         WHERE ST_DWithin(p.location_coords, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 100000)
-         ORDER BY distance_km
-         LIMIT 10`,
-        [parseFloat(row.lng), parseFloat(row.lat)]
-    );
+    const lng = row.lng != null ? parseFloat(row.lng) : null;
+    const lat = row.lat != null ? parseFloat(row.lat) : null;
+    const hasCentroid = lng != null && lat != null && !isNaN(lng) && !isNaN(lat);
 
-    // Find public lands that intersect the fire perimeter
-    const landsResult = await db.query(
-        `SELECT pl.objectid, pl.unit_nm AS name, pl.des_tp AS designation_type,
-                pl.mang_name AS manager, pl.gis_acres AS acres
-         FROM public_lands pl
-         JOIN active_fires af ON ST_Intersects(af.perimeter, pl.geom)
-         WHERE af.incident_id = $1
-         ORDER BY pl.gis_acres DESC
-         LIMIT 20`,
-        [incidentId]
-    );
+    // Run independent queries in parallel
+    const [peaksResult, landsResult] = await Promise.all([
+        hasCentroid
+            ? db.query(
+                  `SELECT p.id, p.name,
+                          ST_Distance(p.location_coords, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS distance_km
+                   FROM peaks p
+                   WHERE ST_DWithin(p.location_coords, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 100000)
+                   ORDER BY distance_km
+                   LIMIT 10`,
+                  [lng, lat]
+              )
+            : Promise.resolve({ rows: [] }),
+        db.query(
+            `SELECT pl.objectid, pl.unit_nm AS name, pl.des_tp AS designation_type,
+                    pl.mang_name AS manager, pl.gis_acres AS acres
+             FROM public_lands pl
+             JOIN active_fires af ON ST_Intersects(af.perimeter, pl.geom)
+             WHERE af.incident_id = $1
+             ORDER BY pl.gis_acres DESC
+             LIMIT 20`,
+            [incidentId]
+        ),
+    ]);
 
     return {
         incidentId: row.incident_id,
@@ -48,7 +54,7 @@ const getFireDetail = async (incidentId: string) => {
         incidentType: row.incident_type,
         discoveredAt: row.discovered_at,
         fetchedAt: row.fetched_at,
-        centroid: [parseFloat(row.lng), parseFloat(row.lat)],
+        centroid: hasCentroid ? [lng, lat] : null,
         geometry: row.geometry ? JSON.parse(row.geometry) : null,
         nearbyPeaks: peaksResult.rows.map((r: any) => ({
             id: r.id,

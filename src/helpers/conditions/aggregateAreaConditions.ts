@@ -24,6 +24,7 @@ interface AreaConditionsSummary {
         totalActiveAlerts: number;
         maxSeverity: string;
         events: string[];
+        alerts: { event: string; severity: string; headline: string | null }[];
     } | null;
     airQuality: {
         worstAqi: number;
@@ -119,7 +120,7 @@ const aggregateAreaConditions = async (peakIds: string[]): Promise<AreaCondition
                 : Promise.resolve({ rows: [] }),
             sourcesByType["nws_zone"]?.length
                 ? db.query(
-                      `SELECT alert_id, event, severity
+                      `SELECT alert_id, event, severity, headline
                        FROM nws_active_alerts
                        WHERE affected_zones && $1::text[]
                          AND (expires IS NULL OR expires > NOW())`,
@@ -249,6 +250,11 @@ const aggregateAreaConditions = async (peakIds: string[]): Promise<AreaCondition
             totalActiveAlerts: alertsResult.rows.length,
             maxSeverity: maxSev,
             events,
+            alerts: alertsResult.rows.map((r: any) => ({
+                event: r.event,
+                severity: r.severity,
+                headline: r.headline ?? null,
+            })),
         };
     }
 

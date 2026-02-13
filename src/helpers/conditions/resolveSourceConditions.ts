@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import getCloudSqlConnection from "../getCloudSqlConnection";
+import getSnowPoint, { SnowPointResult } from "../snow/getSnowPoint";
 
 interface ResolvedSourceConditions {
     avalanche: any | null;
@@ -8,6 +9,7 @@ interface ResolvedSourceConditions {
     streamFlow: any | null;
     airQuality: any | null;
     fireProximity: any | null;
+    snowPoint: SnowPointResult | null;
 }
 
 async function resolveAvalanche(db: Pool, peakId: string) {
@@ -230,6 +232,7 @@ async function resolveFires(db: Pool, peakId: string) {
             parseFloat(row.fire_lon)
         );
         return {
+            incidentId: row.incident_id,
             name: row.name,
             acres: row.acres,
             percentContained: row.percent_contained,
@@ -265,12 +268,28 @@ async function resolveFires(db: Pool, peakId: string) {
     };
 }
 
+async function resolveSnowPoint(db: Pool, peakId: string): Promise<SnowPointResult | null> {
+    try {
+        const result = await db.query(
+            `SELECT ST_Y(location_coords::geometry) AS lat, ST_X(location_coords::geometry) AS lng
+             FROM peaks WHERE id = $1 AND location_coords IS NOT NULL`,
+            [peakId]
+        );
+        if (result.rows.length === 0) return null;
+
+        const { lat, lng } = result.rows[0];
+        return await getSnowPoint(parseFloat(lat), parseFloat(lng));
+    } catch {
+        return null;
+    }
+}
+
 const resolveSourceConditions = async (
     peakId: string
 ): Promise<ResolvedSourceConditions> => {
     const db = await getCloudSqlConnection();
 
-    const [avalanche, snotel, alerts, streamflow, aqi, fires] =
+    const [avalanche, snotel, alerts, streamflow, aqi, fires, snowPoint] =
         await Promise.all([
             resolveAvalanche(db, peakId),
             resolveSnotel(db, peakId),
@@ -278,6 +297,7 @@ const resolveSourceConditions = async (
             resolveStreamflow(db, peakId),
             resolveAqi(db, peakId),
             resolveFires(db, peakId),
+            resolveSnowPoint(db, peakId),
         ]);
 
     return {
@@ -287,6 +307,7 @@ const resolveSourceConditions = async (
         streamFlow: streamflow,
         airQuality: aqi,
         fireProximity: fires,
+        snowPoint,
     };
 };
 

@@ -34,6 +34,7 @@ interface AreaConditionsSummary {
         closestFireKm: number;
         totalFiresWithin50km: number;
         smokeRisk: string;
+        fires: { incidentId: string; name: string; acres: number | null; percentContained: number | null; distanceKm: number }[];
     } | null;
     snotel: {
         maxSnowDepthIn: number;
@@ -134,7 +135,7 @@ const aggregateAreaConditions = async (peakIds: string[]): Promise<AreaCondition
                 [peakIds]
             ),
             db.query(
-                `SELECT af.name, af.acres, af.percent_contained,
+                `SELECT af.incident_id, af.name, af.acres, af.percent_contained,
                         MIN(ST_Distance(af.centroid, p.location_coords)) AS min_distance_m
                  FROM active_fires af, peaks p
                  WHERE p.id = ANY($1::text[])
@@ -280,6 +281,13 @@ const aggregateAreaConditions = async (peakIds: string[]): Promise<AreaCondition
             closestFireKm: Math.round(closestKm * 10) / 10,
             totalFiresWithin50km: within50km,
             smokeRisk,
+            fires: firesResult.rows.map((r: any) => ({
+                incidentId: r.incident_id,
+                name: r.name,
+                acres: r.acres != null ? parseFloat(r.acres) : null,
+                percentContained: r.percent_contained != null ? parseFloat(r.percent_contained) : null,
+                distanceKm: Math.round(parseFloat(r.min_distance_m) / 100) / 10,
+            })),
         };
     }
 

@@ -21,7 +21,9 @@ const getPublicLandDetail = async (objectId: string) => {
         name: row.unit_nm,
         designationType: row.des_tp,
         manager: row.mang_name,
-        centroid: [parseFloat(row.lng), parseFloat(row.lat)] as [number, number],
+        centroid: row.lng != null && row.lat != null
+            ? [parseFloat(row.lng), parseFloat(row.lat)] as [number, number]
+            : null,
         geometry: row.geometry ? JSON.parse(row.geometry) : null,
     };
 };

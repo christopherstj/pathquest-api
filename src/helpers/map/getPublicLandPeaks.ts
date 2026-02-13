@@ -2,6 +2,8 @@ import getCloudSqlConnection from "../getCloudSqlConnection";
 
 const getPublicLandPeaks = async (objectId: string, page: number = 1, limit: number = 20, userId?: string) => {
     const db = await getCloudSqlConnection();
+    limit = Math.max(1, Math.min(100, limit));
+    page = Math.max(1, page);
     const offset = (page - 1) * limit;
 
     const countResult = await db.query(

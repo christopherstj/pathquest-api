@@ -110,7 +110,9 @@ const getAvalancheZoneDetail = async (centerId: string, zoneId: string, userId?:
         expiresAt: row.expires_at,
         nearbyPeaks,
         geometry: zone?.geometry ? JSON.parse(zone.geometry) : null,
-        centroid: zone ? [parseFloat(zone.lng), parseFloat(zone.lat)] : null,
+        centroid: zone?.lng != null && zone?.lat != null
+            ? [parseFloat(zone.lng), parseFloat(zone.lat)]
+            : null,
         affectedPublicLands: landsResult.rows.map((r: any) => ({
             objectId: String(r.objectid),
             name: r.name,
